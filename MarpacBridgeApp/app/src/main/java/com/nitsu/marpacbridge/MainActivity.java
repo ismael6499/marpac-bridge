@@ -687,14 +687,22 @@ public class MainActivity extends AppCompatActivity {
     private void addConditionRow(Context context, LinearLayout container, String initialOpenParen, String initialVar, String initialOp, String initialVal, String initialCloseParen, String initialLogicOp) {
         float dp = context.getResources().getDisplayMetrics().density;
         int margin4 = (int)(4 * dp);
+        int pad8 = (int)(8 * dp);
 
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        // Container card for this condition rule
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(pad8, pad8, pad8, pad8);
+        card.setBackgroundResource(android.R.drawable.dialog_holo_dark_frame);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0, margin4, 0, margin4);
-        row.setLayoutParams(lp);
+        cardLp.setMargins(0, margin4, 0, margin4);
+        card.setLayoutParams(cardLp);
+
+        // Top Row: ( [Power/Speed] [==] [ON/1] ) [✕]
+        LinearLayout topRow = new LinearLayout(context);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
         // 1. Open Paren Spinner
         android.widget.Spinner spOpenParen = new android.widget.Spinner(context);
@@ -705,11 +713,11 @@ public class MainActivity extends AppCompatActivity {
         spOpenParen.setAdapter(adapterOpenParen);
         if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
         else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
-        row.addView(spOpenParen);
+        topRow.addView(spOpenParen);
 
-        // 2. Variable Spinner
+        // 2. Variable Spinner ("Power" / "Speed")
         android.widget.Spinner spVar = new android.widget.Spinner(context);
-        String[] vars = {"Power State", "Volume / Speed"};
+        String[] vars = {"Power", "Speed"};
         android.widget.ArrayAdapter<String> adapterVar = new android.widget.ArrayAdapter<>(context,
                 android.R.layout.simple_spinner_item, vars);
         adapterVar.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -721,10 +729,12 @@ public class MainActivity extends AppCompatActivity {
         // 4. Value Spinner
         android.widget.Spinner spVal = new android.widget.Spinner(context);
 
+        final boolean[] isInitializing = {true};
+
         spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position == 0) { // Power State
+                if (position == 0) { // Power
                     String[] ops = {"==", "!="};
                     android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
                             android.R.layout.simple_spinner_item, ops);
@@ -737,11 +747,14 @@ public class MainActivity extends AppCompatActivity {
                     adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                     spVal.setAdapter(adapterVal);
 
-                    if ("power".equals(initialVar)) {
+                    if (isInitializing[0] && "power".equalsIgnoreCase(initialVar)) {
                         spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
                         spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
+                    } else {
+                        spOp.setSelection(0);
+                        spVal.setSelection(0);
                     }
-                } else { // Volume / Speed
+                } else { // Speed
                     String[] ops = {"==", "!=", "<", ">", "<=", ">="};
                     android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
                             android.R.layout.simple_spinner_item, ops);
@@ -754,7 +767,7 @@ public class MainActivity extends AppCompatActivity {
                     adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                     spVal.setAdapter(adapterVal);
 
-                    if ("speed".equals(initialVar)) {
+                    if (isInitializing[0] && "speed".equalsIgnoreCase(initialVar)) {
                         int opIdx = 0;
                         for (int j = 0; j < ops.length; j++) {
                             if (ops[j].equals(initialOp)) { opIdx = j; break; }
@@ -764,23 +777,27 @@ public class MainActivity extends AppCompatActivity {
                         int valIdx = 4;
                         try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
                         spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
+                    } else {
+                        spOp.setSelection(0);
+                        spVal.setSelection(4); // Default speed 5
                     }
                 }
+                isInitializing[0] = false;
             }
 
             @Override
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        if ("speed".equals(initialVar)) {
+        if ("speed".equalsIgnoreCase(initialVar)) {
             spVar.setSelection(1);
         } else {
             spVar.setSelection(0);
         }
 
-        row.addView(spVar);
-        row.addView(spOp);
-        row.addView(spVal);
+        topRow.addView(spVar);
+        topRow.addView(spOp);
+        topRow.addView(spVal);
 
         // 5. Close Paren Spinner
         android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
@@ -791,7 +808,37 @@ public class MainActivity extends AppCompatActivity {
         spCloseParen.setAdapter(adapterCloseParen);
         if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
         else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
-        row.addView(spCloseParen);
+        topRow.addView(spCloseParen);
+
+        // Spacer to push Delete button to end
+        View spacer = new View(context);
+        LinearLayout.LayoutParams spLp = new LinearLayout.LayoutParams(0, 1, 1.0f);
+        spacer.setLayoutParams(spLp);
+        topRow.addView(spacer);
+
+        // 7. Delete Button
+        Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnDel.setText("✕");
+        btnDel.setPadding(0, 0, 0, 0);
+        btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
+        btnDel.setLayoutParams(delLp);
+        btnDel.setOnClickListener(v -> container.removeView(card));
+        topRow.addView(btnDel);
+
+        card.addView(topRow);
+
+        // Bottom Row: [ Then for next condition: AND ▾ ]
+        LinearLayout bottomRow = new LinearLayout(context);
+        bottomRow.setOrientation(LinearLayout.HORIZONTAL);
+        bottomRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        bottomRow.setPadding(0, margin4, 0, 0);
+
+        TextView tvLogicLbl = new TextView(context);
+        tvLogicLbl.setText("Combine with next: ");
+        tvLogicLbl.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
+        tvLogicLbl.setTextSize(12f);
+        bottomRow.addView(tvLogicLbl);
 
         // 6. Logic Operator Spinner (AND / OR)
         android.widget.Spinner spLogicOp = new android.widget.Spinner(context);
@@ -802,21 +849,12 @@ public class MainActivity extends AppCompatActivity {
         spLogicOp.setAdapter(adapterLogicOp);
         if ("OR".equalsIgnoreCase(initialLogicOp)) spLogicOp.setSelection(1);
         else spLogicOp.setSelection(0);
-        row.addView(spLogicOp);
+        bottomRow.addView(spLogicOp);
 
-        // 7. Delete Button
-        Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        btnDel.setText("✕");
-        btnDel.setPadding(0, 0, 0, 0);
-        btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
-        delLp.setMargins((int)(4 * dp), 0, 0, 0);
-        btnDel.setLayoutParams(delLp);
-        btnDel.setOnClickListener(v -> container.removeView(row));
-        row.addView(btnDel);
+        card.addView(bottomRow);
 
-        row.setTag(new Object[]{spOpenParen, spVar, spOp, spVal, spCloseParen, spLogicOp});
-        container.addView(row);
+        card.setTag(new Object[]{spOpenParen, spVar, spOp, spVal, spCloseParen, spLogicOp});
+        container.addView(card);
     }
 
     @android.annotation.SuppressLint("UseSwitchCompatOrMaterialCode")
