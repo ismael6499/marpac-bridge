@@ -586,6 +586,14 @@ public class MainActivity extends AppCompatActivity {
                 });
                 headerRow.addView(sw);
 
+                Button btnEdit = new Button(this);
+                btnEdit.setText("✏️");
+                btnEdit.setTextSize(14f);
+                btnEdit.setPadding(8, 4, 8, 4);
+                btnEdit.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                btnEdit.setOnClickListener(vv -> showAddScheduleDialog(id));
+                headerRow.addView(btnEdit);
+
                 Button btnDel = new Button(this);
                 btnDel.setText("✕");
                 btnDel.setTextSize(14f);
@@ -623,12 +631,18 @@ public class MainActivity extends AppCompatActivity {
                     StringBuilder onText = new StringBuilder(String.format("🟢 ON   %02d:%02d  vol %d", onHour, onMinute, onVolume));
                     JSONArray onConds = obj.optJSONArray("on_conditions");
                     if (onConds != null && onConds.length() > 0) {
-                        String conj = obj.optString("on_cond_conjunction", "AND");
                         onText.append("  [If: ");
                         for (int k = 0; k < onConds.length(); k++) {
-                            if (k > 0) onText.append(" ").append(conj).append(" ");
                             JSONObject c = onConds.getJSONObject(k);
-                            onText.append(c.optString("var")).append(" ").append(c.optString("op")).append(" ").append(c.optString("val"));
+                            String openParen = c.optString("open_paren", "");
+                            String var = c.optString("var");
+                            String op = c.optString("op");
+                            String val = c.optString("val");
+                            String closeParen = c.optString("close_paren", "");
+                            String logicOp = c.optString("logic_op", "AND");
+                            
+                            if (k > 0) onText.append(" ").append(logicOp).append(" ");
+                            onText.append(openParen).append(var).append(" ").append(op).append(" ").append(val).append(closeParen);
                         }
                         onText.append("]");
                     }
@@ -642,12 +656,18 @@ public class MainActivity extends AppCompatActivity {
                     StringBuilder offText = new StringBuilder(String.format("🔴 OFF  %02d:%02d", offHour, offMinute));
                     JSONArray offConds = obj.optJSONArray("off_conditions");
                     if (offConds != null && offConds.length() > 0) {
-                        String conj = obj.optString("off_cond_conjunction", "AND");
                         offText.append("  [If: ");
                         for (int k = 0; k < offConds.length(); k++) {
-                            if (k > 0) offText.append(" ").append(conj).append(" ");
                             JSONObject c = offConds.getJSONObject(k);
-                            offText.append(c.optString("var")).append(" ").append(c.optString("op")).append(" ").append(c.optString("val"));
+                            String openParen = c.optString("open_paren", "");
+                            String var = c.optString("var");
+                            String op = c.optString("op");
+                            String val = c.optString("val");
+                            String closeParen = c.optString("close_paren", "");
+                            String logicOp = c.optString("logic_op", "AND");
+                            
+                            if (k > 0) offText.append(" ").append(logicOp).append(" ");
+                            offText.append(openParen).append(var).append(" ").append(op).append(" ").append(val).append(closeParen);
                         }
                         offText.append("]");
                     }
@@ -664,7 +684,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void addConditionRow(Context context, LinearLayout container, String initialVar, String initialOp, String initialVal) {
+    private void addConditionRow(Context context, LinearLayout container, String initialOpenParen, String initialVar, String initialOp, String initialVal, String initialCloseParen, String initialLogicOp) {
         float dp = context.getResources().getDisplayMetrics().density;
         int margin4 = (int)(4 * dp);
 
@@ -676,7 +696,18 @@ public class MainActivity extends AppCompatActivity {
         lp.setMargins(0, margin4, 0, margin4);
         row.setLayoutParams(lp);
 
-        // 1. Variable Spinner
+        // 1. Open Paren Spinner
+        android.widget.Spinner spOpenParen = new android.widget.Spinner(context);
+        String[] openParens = {"", "(", "(("};
+        android.widget.ArrayAdapter<String> adapterOpenParen = new android.widget.ArrayAdapter<>(context,
+                android.R.layout.simple_spinner_item, openParens);
+        adapterOpenParen.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spOpenParen.setAdapter(adapterOpenParen);
+        if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
+        else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
+        row.addView(spOpenParen);
+
+        // 2. Variable Spinner
         android.widget.Spinner spVar = new android.widget.Spinner(context);
         String[] vars = {"Power State", "Volume / Speed"};
         android.widget.ArrayAdapter<String> adapterVar = new android.widget.ArrayAdapter<>(context,
@@ -684,10 +715,10 @@ public class MainActivity extends AppCompatActivity {
         adapterVar.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spVar.setAdapter(adapterVar);
 
-        // 2. Operator Spinner
+        // 3. Operator Spinner
         android.widget.Spinner spOp = new android.widget.Spinner(context);
 
-        // 3. Value Spinner
+        // 4. Value Spinner
         android.widget.Spinner spVal = new android.widget.Spinner(context);
 
         spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
@@ -751,17 +782,40 @@ public class MainActivity extends AppCompatActivity {
         row.addView(spOp);
         row.addView(spVal);
 
+        // 5. Close Paren Spinner
+        android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
+        String[] closeParens = {"", ")", "))"};
+        android.widget.ArrayAdapter<String> adapterCloseParen = new android.widget.ArrayAdapter<>(context,
+                android.R.layout.simple_spinner_item, closeParens);
+        adapterCloseParen.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spCloseParen.setAdapter(adapterCloseParen);
+        if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
+        else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
+        row.addView(spCloseParen);
+
+        // 6. Logic Operator Spinner (AND / OR)
+        android.widget.Spinner spLogicOp = new android.widget.Spinner(context);
+        String[] logicOps = {"AND", "OR"};
+        android.widget.ArrayAdapter<String> adapterLogicOp = new android.widget.ArrayAdapter<>(context,
+                android.R.layout.simple_spinner_item, logicOps);
+        adapterLogicOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spLogicOp.setAdapter(adapterLogicOp);
+        if ("OR".equalsIgnoreCase(initialLogicOp)) spLogicOp.setSelection(1);
+        else spLogicOp.setSelection(0);
+        row.addView(spLogicOp);
+
+        // 7. Delete Button
         Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnDel.setText("✕");
         btnDel.setPadding(0, 0, 0, 0);
         btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(36 * dp), (int)(36 * dp));
-        delLp.setMargins((int)(6 * dp), 0, 0, 0);
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
+        delLp.setMargins((int)(4 * dp), 0, 0, 0);
         btnDel.setLayoutParams(delLp);
         btnDel.setOnClickListener(v -> container.removeView(row));
         row.addView(btnDel);
 
-        row.setTag(new Object[]{spVar, spOp, spVal});
+        row.setTag(new Object[]{spOpenParen, spVar, spOp, spVal, spCloseParen, spLogicOp});
         container.addView(row);
     }
 
@@ -770,6 +824,19 @@ public class MainActivity extends AppCompatActivity {
         float dp = getResources().getDisplayMetrics().density;
         int pad16 = (int)(16 * dp);
         int pad8  = (int)(8  * dp);
+
+        JSONObject existingPlan = null;
+        if (editId != -1) {
+            try {
+                JSONArray arr = new JSONArray(prefs.getString("schedules_json", "[]"));
+                for (int i = 0; i < arr.length(); i++) {
+                    if (arr.getJSONObject(i).getInt("id") == editId) {
+                        existingPlan = arr.getJSONObject(i);
+                        break;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -788,7 +855,6 @@ public class MainActivity extends AppCompatActivity {
         rbHardware.setText("  💾 Hardware Slot (Max 3)  ");
         rbHardware.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
         rbHardware.setId(View.generateViewId());
-        rbHardware.setChecked(true);
 
         android.widget.RadioButton rbLocal = new android.widget.RadioButton(this);
         rbLocal.setText("  📱 Local Phone Alarm  ");
@@ -799,15 +865,18 @@ public class MainActivity extends AppCompatActivity {
         rgType.addView(rbLocal);
         root.addView(rgType);
 
+        boolean isExistingLocal = existingPlan != null && "local".equals(existingPlan.optString("type"));
+        if (isExistingLocal) rbLocal.setChecked(true); else rbHardware.setChecked(true);
+
         // State variables for time selection
-        final int[] onTime = {22, 0};
-        final int[] offTime = {7, 0};
+        final int[] onTime = {existingPlan != null ? existingPlan.optInt("on_hour", 22) : 22, existingPlan != null ? existingPlan.optInt("on_minute", 0) : 0};
+        final int[] offTime = {existingPlan != null ? existingPlan.optInt("off_hour", 7) : 7, existingPlan != null ? existingPlan.optInt("off_minute", 0) : 0};
 
         // ── ON section ───────────────────────────────────────────────
         CheckBox cbOn = new CheckBox(this);
         cbOn.setText("  🟢  Turn ON");
-        cbOn.setChecked(true);
-        cbOn.setEnabled(false); // Hardware forces both ON & OFF
+        cbOn.setChecked(existingPlan != null ? existingPlan.optBoolean("on_enabled", true) : true);
+        cbOn.setEnabled(isExistingLocal);
         cbOn.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
         cbOn.setTextSize(15f);
         root.addView(cbOn);
@@ -846,14 +915,14 @@ public class MainActivity extends AppCompatActivity {
 
         NumberPicker npVol = new NumberPicker(this);
         npVol.setMinValue(1); npVol.setMaxValue(10);
-        npVol.setValue(prefs.getInt("last_volume", 5));
+        npVol.setValue(existingPlan != null ? existingPlan.optInt("on_volume", 5) : prefs.getInt("last_volume", 5));
         npVol.setDescendantFocusability(NumberPicker.FOCUS_BLOCK_DESCENDANTS);
         layoutOnContainer.addView(npVol);
 
         // ON Conditions container (Local only)
         LinearLayout layoutOnCondSection = new LinearLayout(this);
         layoutOnCondSection.setOrientation(LinearLayout.VERTICAL);
-        layoutOnCondSection.setVisibility(View.GONE); // Default hardware mode
+        layoutOnCondSection.setVisibility(isExistingLocal ? View.VISIBLE : View.GONE);
 
         TextView tvOnCondTitle = new TextView(this);
         tvOnCondTitle.setText("⚡ Conditions to turn ON:");
@@ -862,31 +931,31 @@ public class MainActivity extends AppCompatActivity {
         tvOnCondTitle.setPadding(0, pad8, 0, 4);
         layoutOnCondSection.addView(tvOnCondTitle);
 
-        LinearLayout onConjRow = new LinearLayout(this);
-        onConjRow.setOrientation(LinearLayout.HORIZONTAL);
-        onConjRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        TextView tvOnConjLbl = new TextView(this);
-        tvOnConjLbl.setText("Match mode: ");
-        tvOnConjLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
-        tvOnConjLbl.setTextSize(12f);
-        android.widget.Spinner spOnConj = new android.widget.Spinner(this);
-        android.widget.ArrayAdapter<String> conjAdapter1 = new android.widget.ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, new String[]{"ALL conditions (AND)", "ANY condition (OR)"});
-        conjAdapter1.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spOnConj.setAdapter(conjAdapter1);
-        onConjRow.addView(tvOnConjLbl);
-        onConjRow.addView(spOnConj);
-        layoutOnCondSection.addView(onConjRow);
-
         LinearLayout containerOnConds = new LinearLayout(this);
         containerOnConds.setOrientation(LinearLayout.VERTICAL);
         layoutOnCondSection.addView(containerOnConds);
+
+        if (existingPlan != null && existingPlan.has("on_conditions")) {
+            try {
+                JSONArray cArr = existingPlan.getJSONArray("on_conditions");
+                for (int c = 0; c < cArr.length(); c++) {
+                    JSONObject co = cArr.getJSONObject(c);
+                    addConditionRow(this, containerOnConds,
+                            co.optString("open_paren", ""),
+                            co.optString("var", "power"),
+                            co.optString("op", "=="),
+                            co.optString("val", "OFF"),
+                            co.optString("close_paren", ""),
+                            co.optString("logic_op", "AND"));
+                }
+            } catch (Exception ignored) {}
+        }
 
         Button btnAddOnCond = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnAddOnCond.setText("+ Add ON Condition");
         btnAddOnCond.setTextSize(12f);
         btnAddOnCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
-        btnAddOnCond.setOnClickListener(v -> addConditionRow(this, containerOnConds, "power", "==", "OFF"));
+        btnAddOnCond.setOnClickListener(v -> addConditionRow(this, containerOnConds, "", "power", "==", "OFF", "", "AND"));
         layoutOnCondSection.addView(btnAddOnCond);
 
         layoutOnContainer.addView(layoutOnCondSection);
@@ -895,8 +964,8 @@ public class MainActivity extends AppCompatActivity {
         // ── OFF section ──────────────────────────────────────────────
         CheckBox cbOff = new CheckBox(this);
         cbOff.setText("  🔴  Turn OFF");
-        cbOff.setChecked(true);
-        cbOff.setEnabled(false); // Hardware forces both ON & OFF
+        cbOff.setChecked(existingPlan != null ? existingPlan.optBoolean("off_enabled", true) : true);
+        cbOff.setEnabled(isExistingLocal);
         cbOff.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
         cbOff.setTextSize(15f);
         LinearLayout.LayoutParams offCbLp = new LinearLayout.LayoutParams(
@@ -934,7 +1003,7 @@ public class MainActivity extends AppCompatActivity {
         // OFF Conditions container (Local only)
         LinearLayout layoutOffCondSection = new LinearLayout(this);
         layoutOffCondSection.setOrientation(LinearLayout.VERTICAL);
-        layoutOffCondSection.setVisibility(View.GONE); // Default hardware mode
+        layoutOffCondSection.setVisibility(isExistingLocal ? View.VISIBLE : View.GONE);
 
         TextView tvOffCondTitle = new TextView(this);
         tvOffCondTitle.setText("⚡ Conditions to turn OFF:");
@@ -943,31 +1012,31 @@ public class MainActivity extends AppCompatActivity {
         tvOffCondTitle.setPadding(0, pad8, 0, 4);
         layoutOffCondSection.addView(tvOffCondTitle);
 
-        LinearLayout offConjRow = new LinearLayout(this);
-        offConjRow.setOrientation(LinearLayout.HORIZONTAL);
-        offConjRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        TextView tvOffConjLbl = new TextView(this);
-        tvOffConjLbl.setText("Match mode: ");
-        tvOffConjLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
-        tvOffConjLbl.setTextSize(12f);
-        android.widget.Spinner spOffConj = new android.widget.Spinner(this);
-        android.widget.ArrayAdapter<String> conjAdapter2 = new android.widget.ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, new String[]{"ALL conditions (AND)", "ANY condition (OR)"});
-        conjAdapter2.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spOffConj.setAdapter(conjAdapter2);
-        offConjRow.addView(tvOffConjLbl);
-        offConjRow.addView(spOffConj);
-        layoutOffCondSection.addView(offConjRow);
-
         LinearLayout containerOffConds = new LinearLayout(this);
         containerOffConds.setOrientation(LinearLayout.VERTICAL);
         layoutOffCondSection.addView(containerOffConds);
+
+        if (existingPlan != null && existingPlan.has("off_conditions")) {
+            try {
+                JSONArray cArr = existingPlan.getJSONArray("off_conditions");
+                for (int c = 0; c < cArr.length(); c++) {
+                    JSONObject co = cArr.getJSONObject(c);
+                    addConditionRow(this, containerOffConds,
+                            co.optString("open_paren", ""),
+                            co.optString("var", "power"),
+                            co.optString("op", "=="),
+                            co.optString("val", "ON"),
+                            co.optString("close_paren", ""),
+                            co.optString("logic_op", "AND"));
+                }
+            } catch (Exception ignored) {}
+        }
 
         Button btnAddOffCond = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnAddOffCond.setText("+ Add OFF Condition");
         btnAddOffCond.setTextSize(12f);
         btnAddOffCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
-        btnAddOffCond.setOnClickListener(v -> addConditionRow(this, containerOffConds, "power", "==", "ON"));
+        btnAddOffCond.setOnClickListener(v -> addConditionRow(this, containerOffConds, "", "power", "==", "ON", "", "AND"));
         layoutOffCondSection.addView(btnAddOffCond);
 
         layoutOffContainer.addView(layoutOffCondSection);
@@ -1009,6 +1078,7 @@ public class MainActivity extends AppCompatActivity {
         tvDaysLabel.setLayoutParams(daysLblLp);
         root.addView(tvDaysLabel);
 
+        int savedDays = existingPlan != null ? existingPlan.optInt("days", 127) : 127;
         String[] dayNames = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
         CheckBox[] dayBoxes = new CheckBox[7];
 
@@ -1019,7 +1089,7 @@ public class MainActivity extends AppCompatActivity {
         for (int d = 0; d < 4; d++) {
             dayBoxes[d] = new CheckBox(this);
             dayBoxes[d].setText(dayNames[d]);
-            dayBoxes[d].setChecked(true);
+            dayBoxes[d].setChecked((savedDays & (1 << d)) != 0);
             dayBoxes[d].setTextColor(ContextCompat.getColor(this, R.color.text_bright));
             dayBoxes[d].setTextSize(12f);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
@@ -1035,7 +1105,7 @@ public class MainActivity extends AppCompatActivity {
         for (int d = 4; d < 7; d++) {
             dayBoxes[d] = new CheckBox(this);
             dayBoxes[d].setText(dayNames[d]);
-            dayBoxes[d].setChecked(true);
+            dayBoxes[d].setChecked((savedDays & (1 << d)) != 0);
             dayBoxes[d].setTextColor(ContextCompat.getColor(this, R.color.text_bright));
             dayBoxes[d].setTextSize(12f);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
@@ -1051,8 +1121,9 @@ public class MainActivity extends AppCompatActivity {
         ScrollView sv = new ScrollView(this);
         sv.addView(root);
 
+        String dialogTitle = (editId != -1) ? "✏️ Edit Schedule Plan" : "➕ Add Schedule Plan";
         new MaterialAlertDialogBuilder(this, R.style.Theme_MarpacBridge)
-            .setTitle("➕ Add Schedule Plan")
+            .setTitle(dialogTitle)
             .setView(sv)
             .setPositiveButton("Save", (dialog, which) -> {
                 boolean isLocal = rbLocal.isChecked();
@@ -1071,7 +1142,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     JSONArray arr = new JSONArray(prefs.getString("schedules_json", "[]"));
                     
-                    if (!isLocal) {
+                    if (!isLocal && editId == -1) {
                         int hwCount = 0;
                         for (int j = 0; j < arr.length(); j++) {
                             if (!"local".equals(arr.getJSONObject(j).optString("type"))) {
@@ -1084,7 +1155,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
-                    int newId = (int)(System.currentTimeMillis() % 100000);
+                    int newId = (editId != -1) ? editId : (int)(System.currentTimeMillis() % 100000);
                     JSONObject plan = new JSONObject();
                     plan.put("id", newId);
                     plan.put("days", days);
@@ -1102,38 +1173,48 @@ public class MainActivity extends AppCompatActivity {
                     
                     if (isLocal) {
                         // Serialize ON conditions
-                        plan.put("on_cond_conjunction", spOnConj.getSelectedItemPosition() == 1 ? "OR" : "AND");
                         JSONArray onCondArr = new JSONArray();
                         for (int k = 0; k < containerOnConds.getChildCount(); k++) {
                             View r = containerOnConds.getChildAt(k);
                             Object[] tag = (Object[]) r.getTag();
-                            if (tag != null && tag.length == 3) {
-                                android.widget.Spinner spVar = (android.widget.Spinner) tag[0];
-                                android.widget.Spinner spOp = (android.widget.Spinner) tag[1];
-                                android.widget.Spinner spVal = (android.widget.Spinner) tag[2];
+                            if (tag != null && tag.length == 6) {
+                                android.widget.Spinner spOpenParen = (android.widget.Spinner) tag[0];
+                                android.widget.Spinner spVar = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spOp = (android.widget.Spinner) tag[2];
+                                android.widget.Spinner spVal = (android.widget.Spinner) tag[3];
+                                android.widget.Spinner spCloseParen = (android.widget.Spinner) tag[4];
+                                android.widget.Spinner spLogicOp = (android.widget.Spinner) tag[5];
                                 JSONObject cObj = new JSONObject();
+                                cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
                                 cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
                                 cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
+                                cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 onCondArr.put(cObj);
                             }
                         }
                         plan.put("on_conditions", onCondArr);
 
                         // Serialize OFF conditions
-                        plan.put("off_cond_conjunction", spOffConj.getSelectedItemPosition() == 1 ? "OR" : "AND");
                         JSONArray offCondArr = new JSONArray();
                         for (int k = 0; k < containerOffConds.getChildCount(); k++) {
                             View r = containerOffConds.getChildAt(k);
                             Object[] tag = (Object[]) r.getTag();
-                            if (tag != null && tag.length == 3) {
-                                android.widget.Spinner spVar = (android.widget.Spinner) tag[0];
-                                android.widget.Spinner spOp = (android.widget.Spinner) tag[1];
-                                android.widget.Spinner spVal = (android.widget.Spinner) tag[2];
+                            if (tag != null && tag.length == 6) {
+                                android.widget.Spinner spOpenParen = (android.widget.Spinner) tag[0];
+                                android.widget.Spinner spVar = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spOp = (android.widget.Spinner) tag[2];
+                                android.widget.Spinner spVal = (android.widget.Spinner) tag[3];
+                                android.widget.Spinner spCloseParen = (android.widget.Spinner) tag[4];
+                                android.widget.Spinner spLogicOp = (android.widget.Spinner) tag[5];
                                 JSONObject cObj = new JSONObject();
+                                cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
                                 cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
                                 cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
+                                cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 offCondArr.put(cObj);
                             }
                         }
@@ -1146,7 +1227,17 @@ public class MainActivity extends AppCompatActivity {
                     plan.put("minute",  wantsOn ? onTime[1] : offTime[1]);
                     plan.put("volume",  npVol.getValue());
 
-                    arr.put(plan);
+                    if (editId != -1) {
+                        for (int j = 0; j < arr.length(); j++) {
+                            if (arr.getJSONObject(j).getInt("id") == editId) {
+                                arr.put(j, plan);
+                                break;
+                            }
+                        }
+                    } else {
+                        arr.put(plan);
+                    }
+
                     prefs.edit().putString("schedules_json", arr.toString()).apply();
                     
                     if (isLocal) {

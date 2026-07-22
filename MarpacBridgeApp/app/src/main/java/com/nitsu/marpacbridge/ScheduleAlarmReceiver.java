@@ -14,7 +14,9 @@ import org.json.JSONObject;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 public class ScheduleAlarmReceiver extends BroadcastReceiver {
     private static final String TAG = "MarpacScheduleAlarm";
@@ -252,6 +254,67 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
         }
     }
 
+    private static class BooleanExpressionEvaluator {
+        private final List<String> tokens;
+        private int pos = 0;
+
+        public BooleanExpressionEvaluator(List<String> tokens) {
+            this.tokens = tokens;
+        }
+
+        public boolean parse() {
+            if (tokens.isEmpty()) return true;
+            try {
+                return parseExpression();
+            } catch (Exception e) {
+                Log.e("MarpacScheduleAlarm", "Error parsing boolean expression", e);
+                return true;
+            }
+        }
+
+        private boolean parseExpression() {
+            boolean left = parseTerm();
+            while (pos < tokens.size() && "OR".equalsIgnoreCase(tokens.get(pos))) {
+                pos++;
+                boolean right = parseTerm();
+                left = left || right;
+            }
+            return left;
+        }
+
+        private boolean parseTerm() {
+            boolean left = parseFactor();
+            while (pos < tokens.size() && "AND".equalsIgnoreCase(tokens.get(pos))) {
+                pos++;
+                boolean right = parseFactor();
+                left = left && right;
+            }
+            return left;
+        }
+
+        private boolean parseFactor() {
+            if (pos >= tokens.size()) return true;
+            String token = tokens.get(pos);
+            if ("(".equals(token)) {
+                pos++;
+                boolean result = parseExpression();
+                if (pos < tokens.size() && ")".equals(tokens.get(pos))) {
+                    pos++;
+                }
+                return result;
+            } else if ("true".equalsIgnoreCase(token)) {
+                pos++;
+                return true;
+            } else if ("false".equalsIgnoreCase(token)) {
+                pos++;
+                return false;
+            } else {
+                pos++;
+                return true;
+            }
+        }
+    }
+
     private static boolean evaluateConditions(Context context, String conjunction, JSONArray conditions) {
         if (conditions == null || conditions.length() == 0) {
             return true;
@@ -260,12 +323,17 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
         int currentPower = prefs.getInt("last_power_state", 0);
         int currentSpeed = prefs.getInt("last_volume", 5);
 
-        boolean isOr = "OR".equalsIgnoreCase(conjunction);
-        boolean result = !isOr;
+        List<String> tokens = new ArrayList<>();
 
         for (int i = 0; i < conditions.length(); i++) {
             try {
                 JSONObject cond = conditions.getJSONObject(i);
+                
+                String openParen = cond.optString("open_paren", "");
+                for (int p = 0; p < openParen.length(); p++) {
+                    if (openParen.charAt(p) == '(') tokens.add("(");
+                }
+
                 String var = cond.getString("var");
                 String op = cond.getString("op");
                 String val = cond.getString("val");
@@ -290,18 +358,24 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
                         case ">=": match = (currentVal >= expectedVal); break;
                     }
                 }
+                tokens.add(match ? "true" : "false");
 
-                if (isOr) {
-                    result |= match;
-                    if (result) break;
-                } else {
-                    result &= match;
-                    if (!result) break;
+                String closeParen = cond.optString("close_paren", "");
+                for (int p = 0; p < closeParen.length(); p++) {
+                    if (closeParen.charAt(p) == ')') tokens.add(")");
                 }
+
+                if (i < conditions.length() - 1) {
+                    String logicOp = cond.optString("logic_op", conjunction != null ? conjunction : "AND");
+                    tokens.add(logicOp);
+                }
+
             } catch (Exception e) {
-                Log.e(TAG, "Error evaluating condition", e);
+                Log.e(TAG, "Error evaluating condition item " + i, e);
             }
         }
-        return result;
+
+        BooleanExpressionEvaluator evaluator = new BooleanExpressionEvaluator(tokens);
+        return evaluator.parse();
     }
 }
