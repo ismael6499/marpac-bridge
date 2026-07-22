@@ -684,6 +684,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private android.widget.ArrayAdapter<String> createSpinnerAdapter(Context context, String[] items) {
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(context, android.R.layout.simple_spinner_item, items) {
+            @Override
+            public View getView(int position, View convertView, android.view.ViewGroup parent) {
+                View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    ((TextView) v).setTextColor(ContextCompat.getColor(context, R.color.text_bright));
+                    ((TextView) v).setTextSize(13f);
+                }
+                return v;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, android.view.ViewGroup parent) {
+                View v = super.getDropDownView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    ((TextView) v).setTextColor(ContextCompat.getColor(context, R.color.text_bright));
+                    ((TextView) v).setTextSize(14f);
+                    v.setBackgroundColor(ContextCompat.getColor(context, R.color.card_dark));
+                }
+                return v;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
+    }
+
     private void addConditionRow(Context context, LinearLayout container, String initialOpenParen, String initialVar, String initialOp, String initialVal, String initialCloseParen, String initialLogicOp) {
         float dp = context.getResources().getDisplayMetrics().density;
         int margin4 = (int)(4 * dp);
@@ -706,22 +733,14 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. Open Paren Spinner
         android.widget.Spinner spOpenParen = new android.widget.Spinner(context);
-        String[] openParens = {"", "(", "(("};
-        android.widget.ArrayAdapter<String> adapterOpenParen = new android.widget.ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, openParens);
-        adapterOpenParen.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spOpenParen.setAdapter(adapterOpenParen);
+        spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"", "(", "(("}));
         if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
         else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
         topRow.addView(spOpenParen);
 
         // 2. Variable Spinner ("Power" / "Speed")
         android.widget.Spinner spVar = new android.widget.Spinner(context);
-        String[] vars = {"Power", "Speed"};
-        android.widget.ArrayAdapter<String> adapterVar = new android.widget.ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, vars);
-        adapterVar.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spVar.setAdapter(adapterVar);
+        spVar.setAdapter(createSpinnerAdapter(context, new String[]{"Power", "Speed"}));
 
         // 3. Operator Spinner
         android.widget.Spinner spOp = new android.widget.Spinner(context);
@@ -736,16 +755,10 @@ public class MainActivity extends AppCompatActivity {
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 if (position == 0) { // Power
                     String[] ops = {"==", "!="};
-                    android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
-                            android.R.layout.simple_spinner_item, ops);
-                    adapterOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    spOp.setAdapter(adapterOp);
+                    spOp.setAdapter(createSpinnerAdapter(context, ops));
 
                     String[] vals = {"ON", "OFF"};
-                    android.widget.ArrayAdapter<String> adapterVal = new android.widget.ArrayAdapter<>(context,
-                            android.R.layout.simple_spinner_item, vals);
-                    adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    spVal.setAdapter(adapterVal);
+                    spVal.setAdapter(createSpinnerAdapter(context, vals));
 
                     if (isInitializing[0] && "power".equalsIgnoreCase(initialVar)) {
                         spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
@@ -756,16 +769,10 @@ public class MainActivity extends AppCompatActivity {
                     }
                 } else { // Speed
                     String[] ops = {"==", "!=", "<", ">", "<=", ">="};
-                    android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
-                            android.R.layout.simple_spinner_item, ops);
-                    adapterOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    spOp.setAdapter(adapterOp);
+                    spOp.setAdapter(createSpinnerAdapter(context, ops));
 
                     String[] vals = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
-                    android.widget.ArrayAdapter<String> adapterVal = new android.widget.ArrayAdapter<>(context,
-                            android.R.layout.simple_spinner_item, vals);
-                    adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    spVal.setAdapter(adapterVal);
+                    spVal.setAdapter(createSpinnerAdapter(context, vals));
 
                     if (isInitializing[0] && "speed".equalsIgnoreCase(initialVar)) {
                         int opIdx = 0;
@@ -801,11 +808,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 5. Close Paren Spinner
         android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
-        String[] closeParens = {"", ")", "))"};
-        android.widget.ArrayAdapter<String> adapterCloseParen = new android.widget.ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, closeParens);
-        adapterCloseParen.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spCloseParen.setAdapter(adapterCloseParen);
+        spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"", ")", "))"}));
         if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
         else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
         topRow.addView(spCloseParen);
@@ -842,11 +845,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 6. Logic Operator Spinner (AND / OR)
         android.widget.Spinner spLogicOp = new android.widget.Spinner(context);
-        String[] logicOps = {"AND", "OR"};
-        android.widget.ArrayAdapter<String> adapterLogicOp = new android.widget.ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, logicOps);
-        adapterLogicOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spLogicOp.setAdapter(adapterLogicOp);
+        spLogicOp.setAdapter(createSpinnerAdapter(context, new String[]{"AND", "OR"}));
         if ("OR".equalsIgnoreCase(initialLogicOp)) spLogicOp.setSelection(1);
         else spLogicOp.setSelection(0);
         bottomRow.addView(spLogicOp);
