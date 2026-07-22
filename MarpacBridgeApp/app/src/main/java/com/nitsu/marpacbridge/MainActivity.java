@@ -685,7 +685,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private android.widget.ArrayAdapter<String> createSpinnerAdapter(Context context, String[] items) {
-        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(context, android.R.layout.simple_spinner_item, items) {
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(context, android.R.layout.simple_spinner_item, new java.util.ArrayList<>(java.util.Arrays.asList(items))) {
             @Override
             public View getView(int position, View convertView, android.view.ViewGroup parent) {
                 View v = super.getView(position, convertView, parent);
@@ -744,9 +744,13 @@ public class MainActivity extends AppCompatActivity {
 
         // 3. Operator Spinner
         android.widget.Spinner spOp = new android.widget.Spinner(context);
+        android.widget.ArrayAdapter<String> opAdapter = createSpinnerAdapter(context, new String[]{"==", "!="});
+        spOp.setAdapter(opAdapter);
 
         // 4. Value Spinner
         android.widget.Spinner spVal = new android.widget.Spinner(context);
+        android.widget.ArrayAdapter<String> valAdapter = createSpinnerAdapter(context, new String[]{"ON", "OFF"});
+        spVal.setAdapter(valAdapter);
 
         final int[] currentVarPos = {-1};
 
@@ -758,25 +762,33 @@ public class MainActivity extends AppCompatActivity {
                     currentVarPos[0] = position;
 
                     if (position == 0) { // Power State
-                        spOp.setAdapter(createSpinnerAdapter(context, new String[]{"==", "!="}));
-                        spVal.setAdapter(createSpinnerAdapter(context, new String[]{"ON", "OFF"}));
+                        opAdapter.clear();
+                        opAdapter.addAll(java.util.Arrays.asList("==", "!="));
+                        opAdapter.notifyDataSetChanged();
+
+                        valAdapter.clear();
+                        valAdapter.addAll(java.util.Arrays.asList("ON", "OFF"));
+                        valAdapter.notifyDataSetChanged();
 
                         if (isInitCall && "power".equalsIgnoreCase(initialVar)) {
                             spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
                             spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
-                        } else {
+                        } else if (!isInitCall) {
                             spOp.setSelection(0);
                             spVal.setSelection(0);
                         }
                     } else { // Volume / Speed
-                        String[] ops = {"==", "!=", "<", ">", "<=", ">="};
-                        spOp.setAdapter(createSpinnerAdapter(context, ops));
+                        opAdapter.clear();
+                        opAdapter.addAll(java.util.Arrays.asList("==", "!=", "<", ">", "<=", ">="));
+                        opAdapter.notifyDataSetChanged();
 
-                        String[] vals = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
-                        spVal.setAdapter(createSpinnerAdapter(context, vals));
+                        valAdapter.clear();
+                        valAdapter.addAll(java.util.Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"));
+                        valAdapter.notifyDataSetChanged();
 
                         if (isInitCall && "speed".equalsIgnoreCase(initialVar)) {
                             int opIdx = 0;
+                            String[] ops = {"==", "!=", "<", ">", "<=", ">="};
                             for (int j = 0; j < ops.length; j++) {
                                 if (ops[j].equals(initialOp)) { opIdx = j; break; }
                             }
@@ -785,7 +797,7 @@ public class MainActivity extends AppCompatActivity {
                             int valIdx = 4;
                             try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
                             spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
-                        } else {
+                        } else if (!isInitCall) {
                             spOp.setSelection(0);
                             spVal.setSelection(4); // Default speed 5
                         }
