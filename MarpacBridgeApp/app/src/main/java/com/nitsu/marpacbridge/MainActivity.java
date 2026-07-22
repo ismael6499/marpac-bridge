@@ -716,7 +716,6 @@ public class MainActivity extends AppCompatActivity {
         int margin4 = (int)(4 * dp);
         int pad8 = (int)(8 * dp);
 
-        // Container card for this condition rule
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(pad8, pad8, pad8, pad8);
@@ -726,7 +725,6 @@ public class MainActivity extends AppCompatActivity {
         cardLp.setMargins(0, margin4, 0, margin4);
         card.setLayoutParams(cardLp);
 
-        // Top Row: ( [Power/Speed] [==] [ON/1] ) [✕]
         LinearLayout topRow = new LinearLayout(context);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -736,7 +734,6 @@ public class MainActivity extends AppCompatActivity {
         spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"", "(", "(("}));
         if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
         else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
-        topRow.addView(spOpenParen);
 
         // 2. Variable Spinner ("Power" / "Speed")
         android.widget.Spinner spVar = new android.widget.Spinner(context);
@@ -744,64 +741,59 @@ public class MainActivity extends AppCompatActivity {
 
         // 3. Operator Spinner
         android.widget.Spinner spOp = new android.widget.Spinner(context);
-        android.widget.ArrayAdapter<String> opAdapter = createSpinnerAdapter(context, new String[]{"==", "!="});
-        spOp.setAdapter(opAdapter);
+        android.widget.ArrayAdapter<String> adapterOpPower = createSpinnerAdapter(context, new String[]{"==", "!="});
+        android.widget.ArrayAdapter<String> adapterOpSpeed = createSpinnerAdapter(context, new String[]{"==", "!=", "<", ">", "<=", ">="});
 
-        // 4. Value Spinner
-        android.widget.Spinner spVal = new android.widget.Spinner(context);
-        android.widget.ArrayAdapter<String> valAdapter = createSpinnerAdapter(context, new String[]{"ON", "OFF"});
-        spVal.setAdapter(valAdapter);
+        // 4a. Power Value Spinner (ON / OFF)
+        android.widget.Spinner spValPower = new android.widget.Spinner(context);
+        spValPower.setAdapter(createSpinnerAdapter(context, new String[]{"ON", "OFF"}));
 
-        final int[] currentVarPos = {-1};
+        // 4b. Speed Value Spinner (1..10)
+        android.widget.Spinner spValSpeed = new android.widget.Spinner(context);
+        spValSpeed.setAdapter(createSpinnerAdapter(context, new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}));
+
+        boolean isSpeedInit = "speed".equalsIgnoreCase(initialVar);
+
+        if (isSpeedInit) {
+            spOp.setAdapter(adapterOpSpeed);
+            int opIdx = 0;
+            String[] ops = {"==", "!=", "<", ">", "<=", ">="};
+            for (int j = 0; j < ops.length; j++) {
+                if (ops[j].equals(initialOp)) { opIdx = j; break; }
+            }
+            spOp.setSelection(opIdx);
+
+            int valIdx = 4;
+            try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
+            spValSpeed.setSelection(Math.max(0, Math.min(9, valIdx)));
+
+            spValPower.setVisibility(View.GONE);
+            spValSpeed.setVisibility(View.VISIBLE);
+        } else {
+            spOp.setAdapter(adapterOpPower);
+            spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
+            spValPower.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
+
+            spValPower.setVisibility(View.VISIBLE);
+            spValSpeed.setVisibility(View.GONE);
+        }
+
+        spVar.setAdapter(createSpinnerAdapter(context, new String[]{"Power", "Speed"}));
+        spVar.setSelection(isSpeedInit ? 1 : 0);
 
         spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position != currentVarPos[0]) {
-                    boolean isInitCall = (currentVarPos[0] == -1);
-                    currentVarPos[0] = position;
-
-                    if (position == 0) { // Power State
-                        opAdapter.clear();
-                        opAdapter.addAll(java.util.Arrays.asList("==", "!="));
-                        opAdapter.notifyDataSetChanged();
-
-                        valAdapter.clear();
-                        valAdapter.addAll(java.util.Arrays.asList("ON", "OFF"));
-                        valAdapter.notifyDataSetChanged();
-
-                        if (isInitCall && "power".equalsIgnoreCase(initialVar)) {
-                            spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
-                            spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
-                        } else if (!isInitCall) {
-                            spOp.setSelection(0);
-                            spVal.setSelection(0);
-                        }
-                    } else { // Volume / Speed
-                        opAdapter.clear();
-                        opAdapter.addAll(java.util.Arrays.asList("==", "!=", "<", ">", "<=", ">="));
-                        opAdapter.notifyDataSetChanged();
-
-                        valAdapter.clear();
-                        valAdapter.addAll(java.util.Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"));
-                        valAdapter.notifyDataSetChanged();
-
-                        if (isInitCall && "speed".equalsIgnoreCase(initialVar)) {
-                            int opIdx = 0;
-                            String[] ops = {"==", "!=", "<", ">", "<=", ">="};
-                            for (int j = 0; j < ops.length; j++) {
-                                if (ops[j].equals(initialOp)) { opIdx = j; break; }
-                            }
-                            spOp.setSelection(opIdx);
-
-                            int valIdx = 4;
-                            try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
-                            spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
-                        } else if (!isInitCall) {
-                            spOp.setSelection(0);
-                            spVal.setSelection(4); // Default speed 5
-                        }
-                    }
+                if (position == 0) { // Power
+                    spOp.setAdapter(adapterOpPower);
+                    spOp.setSelection(0);
+                    spValPower.setVisibility(View.VISIBLE);
+                    spValSpeed.setVisibility(View.GONE);
+                } else { // Speed
+                    spOp.setAdapter(adapterOpSpeed);
+                    spOp.setSelection(0);
+                    spValPower.setVisibility(View.GONE);
+                    spValSpeed.setVisibility(View.VISIBLE);
                 }
             }
 
@@ -809,11 +801,11 @@ public class MainActivity extends AppCompatActivity {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        int initialPos = "speed".equalsIgnoreCase(initialVar) ? 1 : 0;
-        spVar.setSelection(initialPos);
-        if (currentVarPos[0] == -1) {
-            spVar.getOnItemSelectedListener().onItemSelected(spVar, null, initialPos, 0);
-        }
+        // 5. Close Paren Spinner
+        android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
+        spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"", ")", "))"}));
+        if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
+        else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
 
         LinearLayout.LayoutParams lpParen = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
         LinearLayout.LayoutParams lpVar   = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.2f);
@@ -823,22 +815,17 @@ public class MainActivity extends AppCompatActivity {
         spOpenParen.setLayoutParams(lpParen);
         spVar.setLayoutParams(lpVar);
         spOp.setLayoutParams(lpOp);
-        spVal.setLayoutParams(lpVal);
-
-        // 5. Close Paren Spinner
-        android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
-        spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"", ")", "))"}));
-        if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
-        else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
+        spValPower.setLayoutParams(lpVal);
+        spValSpeed.setLayoutParams(lpVal);
         spCloseParen.setLayoutParams(lpParen);
 
         topRow.addView(spOpenParen);
         topRow.addView(spVar);
         topRow.addView(spOp);
-        topRow.addView(spVal);
+        topRow.addView(spValPower);
+        topRow.addView(spValSpeed);
         topRow.addView(spCloseParen);
 
-        // 7. Delete Button
         Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnDel.setText("✕");
         btnDel.setPadding(0, 0, 0, 0);
@@ -851,7 +838,7 @@ public class MainActivity extends AppCompatActivity {
 
         card.addView(topRow);
 
-        // Bottom Row: [ Then for next condition: AND ▾ ]
+        // Bottom Row: [ Combine with next: AND ▾ ]
         LinearLayout bottomRow = new LinearLayout(context);
         bottomRow.setOrientation(LinearLayout.HORIZONTAL);
         bottomRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -863,7 +850,6 @@ public class MainActivity extends AppCompatActivity {
         tvLogicLbl.setTextSize(12f);
         bottomRow.addView(tvLogicLbl);
 
-        // 6. Logic Operator Spinner (AND / OR)
         android.widget.Spinner spLogicOp = new android.widget.Spinner(context);
         spLogicOp.setAdapter(createSpinnerAdapter(context, new String[]{"AND", "OR"}));
         if ("OR".equalsIgnoreCase(initialLogicOp)) spLogicOp.setSelection(1);
@@ -872,7 +858,7 @@ public class MainActivity extends AppCompatActivity {
 
         card.addView(bottomRow);
 
-        card.setTag(new Object[]{spOpenParen, spVar, spOp, spVal, spCloseParen, spLogicOp});
+        card.setTag(new Object[]{spOpenParen, spVar, spOp, spValPower, spValSpeed, spCloseParen, spLogicOp});
         container.addView(card);
     }
 
@@ -1234,18 +1220,25 @@ public class MainActivity extends AppCompatActivity {
                         for (int k = 0; k < containerOnConds.getChildCount(); k++) {
                             View r = containerOnConds.getChildAt(k);
                             Object[] tag = (Object[]) r.getTag();
-                            if (tag != null && tag.length == 6) {
+                            if (tag != null && tag.length == 7) {
                                 android.widget.Spinner spOpenParen = (android.widget.Spinner) tag[0];
-                                android.widget.Spinner spVar = (android.widget.Spinner) tag[1];
-                                android.widget.Spinner spOp = (android.widget.Spinner) tag[2];
-                                android.widget.Spinner spVal = (android.widget.Spinner) tag[3];
-                                android.widget.Spinner spCloseParen = (android.widget.Spinner) tag[4];
-                                android.widget.Spinner spLogicOp = (android.widget.Spinner) tag[5];
+                                android.widget.Spinner spVar       = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spOp        = (android.widget.Spinner) tag[2];
+                                android.widget.Spinner spValPower  = (android.widget.Spinner) tag[3];
+                                android.widget.Spinner spValSpeed  = (android.widget.Spinner) tag[4];
+                                android.widget.Spinner spCloseParen= (android.widget.Spinner) tag[5];
+                                android.widget.Spinner spLogicOp   = (android.widget.Spinner) tag[6];
+
+                                boolean isPower = (spVar.getSelectedItemPosition() == 0);
+                                String valStr = isPower
+                                        ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
+                                        : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
+
                                 JSONObject cObj = new JSONObject();
                                 cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
-                                cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
+                                cObj.put("var", isPower ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
-                                cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                cObj.put("val", valStr);
                                 cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
                                 cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 onCondArr.put(cObj);
@@ -1258,18 +1251,25 @@ public class MainActivity extends AppCompatActivity {
                         for (int k = 0; k < containerOffConds.getChildCount(); k++) {
                             View r = containerOffConds.getChildAt(k);
                             Object[] tag = (Object[]) r.getTag();
-                            if (tag != null && tag.length == 6) {
+                            if (tag != null && tag.length == 7) {
                                 android.widget.Spinner spOpenParen = (android.widget.Spinner) tag[0];
-                                android.widget.Spinner spVar = (android.widget.Spinner) tag[1];
-                                android.widget.Spinner spOp = (android.widget.Spinner) tag[2];
-                                android.widget.Spinner spVal = (android.widget.Spinner) tag[3];
-                                android.widget.Spinner spCloseParen = (android.widget.Spinner) tag[4];
-                                android.widget.Spinner spLogicOp = (android.widget.Spinner) tag[5];
+                                android.widget.Spinner spVar       = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spOp        = (android.widget.Spinner) tag[2];
+                                android.widget.Spinner spValPower  = (android.widget.Spinner) tag[3];
+                                android.widget.Spinner spValSpeed  = (android.widget.Spinner) tag[4];
+                                android.widget.Spinner spCloseParen= (android.widget.Spinner) tag[5];
+                                android.widget.Spinner spLogicOp   = (android.widget.Spinner) tag[6];
+
+                                boolean isPower = (spVar.getSelectedItemPosition() == 0);
+                                String valStr = isPower
+                                        ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
+                                        : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
+
                                 JSONObject cObj = new JSONObject();
                                 cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
-                                cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
+                                cObj.put("var", isPower ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
-                                cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                cObj.put("val", valStr);
                                 cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
                                 cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 offCondArr.put(cObj);
