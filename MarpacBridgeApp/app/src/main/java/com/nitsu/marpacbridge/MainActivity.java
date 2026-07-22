@@ -815,22 +815,28 @@ public class MainActivity extends AppCompatActivity {
             spVar.getOnItemSelectedListener().onItemSelected(spVar, null, initialPos, 0);
         }
 
-        topRow.addView(spVar);
-        topRow.addView(spOp);
-        topRow.addView(spVal);
+        LinearLayout.LayoutParams lpParen = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
+        LinearLayout.LayoutParams lpVar   = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.2f);
+        LinearLayout.LayoutParams lpOp    = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.0f);
+        LinearLayout.LayoutParams lpVal   = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.8f);
+
+        spOpenParen.setLayoutParams(lpParen);
+        spVar.setLayoutParams(lpVar);
+        spOp.setLayoutParams(lpOp);
+        spVal.setLayoutParams(lpVal);
 
         // 5. Close Paren Spinner
         android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
         spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"", ")", "))"}));
         if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
         else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
-        topRow.addView(spCloseParen);
+        spCloseParen.setLayoutParams(lpParen);
 
-        // Spacer to push Delete button to end
-        View spacer = new View(context);
-        LinearLayout.LayoutParams spLp = new LinearLayout.LayoutParams(0, 1, 1.0f);
-        spacer.setLayoutParams(spLp);
-        topRow.addView(spacer);
+        topRow.addView(spOpenParen);
+        topRow.addView(spVar);
+        topRow.addView(spOp);
+        topRow.addView(spVal);
+        topRow.addView(spCloseParen);
 
         // 7. Delete Button
         Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
@@ -838,6 +844,7 @@ public class MainActivity extends AppCompatActivity {
         btnDel.setPadding(0, 0, 0, 0);
         btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
         LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
+        delLp.setMargins((int)(4 * dp), 0, 0, 0);
         btnDel.setLayoutParams(delLp);
         btnDel.setOnClickListener(v -> container.removeView(card));
         topRow.addView(btnDel);
