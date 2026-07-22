@@ -801,62 +801,75 @@ public class MainActivity extends AppCompatActivity {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        // 5. Close Paren Spinner
-        android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
-        spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"", ")", "))"}));
-        if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
-        else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
+        // Row 1: Rule Controls [Variable ▾] [Operator ▾] [Value ▾] [✕]
+        LinearLayout row1 = new LinearLayout(context);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        row1.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-        LinearLayout.LayoutParams lpParen = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
-        LinearLayout.LayoutParams lpVar   = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.2f);
-        LinearLayout.LayoutParams lpOp    = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.0f);
-        LinearLayout.LayoutParams lpVal   = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.8f);
+        LinearLayout.LayoutParams lpVar = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.5f);
+        LinearLayout.LayoutParams lpOp  = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.5f);
+        LinearLayout.LayoutParams lpVal = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.5f);
 
-        spOpenParen.setLayoutParams(lpParen);
         spVar.setLayoutParams(lpVar);
         spOp.setLayoutParams(lpOp);
         spValPower.setLayoutParams(lpVal);
         spValSpeed.setLayoutParams(lpVal);
-        spCloseParen.setLayoutParams(lpParen);
 
-        topRow.addView(spOpenParen);
-        topRow.addView(spVar);
-        topRow.addView(spOp);
-        topRow.addView(spValPower);
-        topRow.addView(spValSpeed);
-        topRow.addView(spCloseParen);
+        row1.addView(spVar);
+        row1.addView(spOp);
+        row1.addView(spValPower);
+        row1.addView(spValSpeed);
 
         Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnDel.setText("✕");
         btnDel.setPadding(0, 0, 0, 0);
         btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
-        delLp.setMargins((int)(4 * dp), 0, 0, 0);
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(32 * dp), (int)(32 * dp));
+        delLp.setMargins((int)(6 * dp), 0, 0, 0);
         btnDel.setLayoutParams(delLp);
         btnDel.setOnClickListener(v -> container.removeView(card));
-        topRow.addView(btnDel);
+        row1.addView(btnDel);
 
-        card.addView(topRow);
+        card.addView(row1);
 
-        // Bottom Row: [ Combine with next: AND ▾ ]
-        LinearLayout bottomRow = new LinearLayout(context);
-        bottomRow.setOrientation(LinearLayout.HORIZONTAL);
-        bottomRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        bottomRow.setPadding(0, margin4, 0, 0);
+        // Row 2: Grouping & Logic [Paren: ( ) ] [Combine: AND ▾]
+        LinearLayout row2 = new LinearLayout(context);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        row2.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row2.setPadding(0, margin4, 0, 0);
 
-        TextView tvLogicLbl = new TextView(context);
-        tvLogicLbl.setText("Combine with next: ");
-        tvLogicLbl.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
-        tvLogicLbl.setTextSize(12f);
-        bottomRow.addView(tvLogicLbl);
+        TextView tvParen = new TextView(context);
+        tvParen.setText("Paren: ");
+        tvParen.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
+        tvParen.setTextSize(12f);
+        row2.addView(tvParen);
+
+        spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"none", "(", "(("}));
+        if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
+        else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
+        else spOpenParen.setSelection(0);
+        row2.addView(spOpenParen);
+
+        android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
+        spCloseParen.setAdapter(createSpinnerAdapter(context, new String[]{"none", ")", "))"}));
+        if (")".equals(initialCloseParen)) spCloseParen.setSelection(1);
+        else if ("))".equals(initialCloseParen)) spCloseParen.setSelection(2);
+        else spCloseParen.setSelection(0);
+        row2.addView(spCloseParen);
+
+        TextView tvLogic = new TextView(context);
+        tvLogic.setText("   Combine next: ");
+        tvLogic.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
+        tvLogic.setTextSize(12f);
+        row2.addView(tvLogic);
 
         android.widget.Spinner spLogicOp = new android.widget.Spinner(context);
         spLogicOp.setAdapter(createSpinnerAdapter(context, new String[]{"AND", "OR"}));
         if ("OR".equalsIgnoreCase(initialLogicOp)) spLogicOp.setSelection(1);
         else spLogicOp.setSelection(0);
-        bottomRow.addView(spLogicOp);
+        row2.addView(spLogicOp);
 
-        card.addView(bottomRow);
+        card.addView(row2);
 
         card.setTag(new Object[]{spOpenParen, spVar, spOp, spValPower, spValSpeed, spCloseParen, spLogicOp});
         container.addView(card);
@@ -1237,12 +1250,15 @@ public class MainActivity extends AppCompatActivity {
                                         ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
                                         : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
 
+                                String openParenStr = (spOpenParen.getSelectedItem() != null && !"none".equalsIgnoreCase(spOpenParen.getSelectedItem().toString())) ? spOpenParen.getSelectedItem().toString() : "";
+                                String closeParenStr = (spCloseParen.getSelectedItem() != null && !"none".equalsIgnoreCase(spCloseParen.getSelectedItem().toString())) ? spCloseParen.getSelectedItem().toString() : "";
+
                                 JSONObject cObj = new JSONObject();
-                                cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
+                                cObj.put("open_paren", openParenStr);
                                 cObj.put("var", isPower ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
                                 cObj.put("val", valStr);
-                                cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
+                                cObj.put("close_paren", closeParenStr);
                                 cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 onCondArr.put(cObj);
                             }
@@ -1268,12 +1284,15 @@ public class MainActivity extends AppCompatActivity {
                                         ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
                                         : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
 
+                                String openParenStr = (spOpenParen.getSelectedItem() != null && !"none".equalsIgnoreCase(spOpenParen.getSelectedItem().toString())) ? spOpenParen.getSelectedItem().toString() : "";
+                                String closeParenStr = (spCloseParen.getSelectedItem() != null && !"none".equalsIgnoreCase(spCloseParen.getSelectedItem().toString())) ? spCloseParen.getSelectedItem().toString() : "";
+
                                 JSONObject cObj = new JSONObject();
-                                cObj.put("open_paren", spOpenParen.getSelectedItem() != null ? spOpenParen.getSelectedItem().toString() : "");
+                                cObj.put("open_paren", openParenStr);
                                 cObj.put("var", isPower ? "power" : "speed");
                                 cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
                                 cObj.put("val", valStr);
-                                cObj.put("close_paren", spCloseParen.getSelectedItem() != null ? spCloseParen.getSelectedItem().toString() : "");
+                                cObj.put("close_paren", closeParenStr);
                                 cObj.put("logic_op", spLogicOp.getSelectedItem() != null ? spLogicOp.getSelectedItem().toString() : "AND");
                                 offCondArr.put(cObj);
                             }
