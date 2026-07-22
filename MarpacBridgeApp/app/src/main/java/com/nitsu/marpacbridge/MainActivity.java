@@ -883,7 +883,8 @@ public class MainActivity extends AppCompatActivity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(pad16, pad16, pad16, pad8);
+        int pad12 = (int)(12 * dp);
+        root.setPadding(pad12, pad12, pad12, pad8);
 
         // ── TYPE SELECTION ───────────────────────────────────────────
         TextView tvTypeLabel = new TextView(this);
@@ -895,13 +896,15 @@ public class MainActivity extends AppCompatActivity {
         android.widget.RadioGroup rgType = new android.widget.RadioGroup(this);
         rgType.setOrientation(android.widget.RadioGroup.HORIZONTAL);
         android.widget.RadioButton rbHardware = new android.widget.RadioButton(this);
-        rbHardware.setText("  💾 Hardware Slot (Max 3)  ");
+        rbHardware.setText(" 💾 Hardware Slot ");
         rbHardware.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
+        rbHardware.setTextSize(13f);
         rbHardware.setId(View.generateViewId());
 
         android.widget.RadioButton rbLocal = new android.widget.RadioButton(this);
-        rbLocal.setText("  📱 Local Phone Alarm  ");
+        rbLocal.setText(" 📱 Local Alarm ");
         rbLocal.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
+        rbLocal.setTextSize(13f);
         rbLocal.setId(View.generateViewId());
 
         rgType.addView(rbHardware);
@@ -1165,10 +1168,10 @@ public class MainActivity extends AppCompatActivity {
         sv.addView(root);
 
         String dialogTitle = (editId != -1) ? "✏️ Edit Schedule Plan" : "➕ Add Schedule Plan";
-        new MaterialAlertDialogBuilder(this, R.style.Theme_MarpacBridge)
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.Theme_MarpacBridge)
             .setTitle(dialogTitle)
             .setView(sv)
-            .setPositiveButton("Save", (dialog, which) -> {
+            .setPositiveButton("Save", (dlg, which) -> {
                 boolean isLocal = rbLocal.isChecked();
                 boolean wantsOn  = cbOn.isChecked();
                 boolean wantsOff = cbOff.isChecked();
@@ -1310,7 +1313,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             })
             .setNegativeButton("Cancel", null)
-            .show();
+            .create();
+        dialog.show();
+
+        android.view.Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void showHelpDialog() {
