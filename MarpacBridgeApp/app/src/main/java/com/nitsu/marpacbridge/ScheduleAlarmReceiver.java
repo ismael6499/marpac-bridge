@@ -80,35 +80,46 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
             int scheduleDays = target.getInt("days");
 
             if ((scheduleDays & dayMask) != 0) {
-                addLog(context, "Today is active in days mask. Executing command: " + (alarmType == 0 ? "ON" : "OFF"));
+                String conj = (alarmType == 0)
+                        ? target.optString("on_cond_conjunction", "AND")
+                        : target.optString("off_cond_conjunction", "AND");
+                JSONArray conds = (alarmType == 0)
+                        ? target.optJSONArray("on_conditions")
+                        : target.optJSONArray("off_conditions");
 
-                Intent serviceIntent = new Intent(context, BLEService.class);
-                serviceIntent.setAction(BLEService.ACTION_EXECUTE);
-                serviceIntent.putExtra("mac_address", mac);
-                serviceIntent.putExtra("unit_number", unitNum);
-
-                if (alarmType == 0) {
-                    int volume = target.optInt("on_volume", 5);
-                    serviceIntent.putExtra("command", "power");
-                    serviceIntent.putExtra("state", 1);
-                    serviceIntent.putExtra("level", volume);
+                if (!evaluateConditions(context, conj, conds)) {
+                    addLog(context, "Conditions not met for action " + (alarmType == 0 ? "ON" : "OFF") + ". Skipping execution.");
                 } else {
-                    serviceIntent.putExtra("command", "power");
-                    serviceIntent.putExtra("state", 0);
-                }
+                    addLog(context, "Today is active and conditions met. Executing command: " + (alarmType == 0 ? "ON" : "OFF"));
 
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(serviceIntent);
+                    Intent serviceIntent = new Intent(context, BLEService.class);
+                    serviceIntent.setAction(BLEService.ACTION_EXECUTE);
+                    serviceIntent.putExtra("mac_address", mac);
+                    serviceIntent.putExtra("unit_number", unitNum);
+
+                    if (alarmType == 0) {
+                        int volume = target.optInt("on_volume", 5);
+                        serviceIntent.putExtra("command", "power");
+                        serviceIntent.putExtra("state", 1);
+                        serviceIntent.putExtra("level", volume);
                     } else {
-                        context.startService(serviceIntent);
+                        serviceIntent.putExtra("command", "power");
+                        serviceIntent.putExtra("state", 0);
                     }
-                } catch (Exception e) {
-                    addLog(context, "Foreground service start blocked: " + e.getMessage() + ". Falling back to background service.");
+
                     try {
-                        context.startService(serviceIntent);
-                    } catch (Exception ex) {
-                        addLog(context, "All service starts failed: " + ex.getMessage());
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(serviceIntent);
+                        } else {
+                            context.startService(serviceIntent);
+                        }
+                    } catch (Exception e) {
+                        addLog(context, "Foreground service start blocked: " + e.getMessage() + ". Falling back to background service.");
+                        try {
+                            context.startService(serviceIntent);
+                        } catch (Exception ex) {
+                            addLog(context, "All service starts failed: " + ex.getMessage());
+                        }
                     }
                 }
             } else {
@@ -239,5 +250,58 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
             pendingIntent.cancel();
             addLog(context, "Cancelled alarm ID " + alarmId);
         }
+    }
+
+    private static boolean evaluateConditions(Context context, String conjunction, JSONArray conditions) {
+        if (conditions == null || conditions.length() == 0) {
+            return true;
+        }
+        SharedPreferences prefs = context.getSharedPreferences("MarpacBridgePrefs", Context.MODE_PRIVATE);
+        int currentPower = prefs.getInt("last_power_state", 0);
+        int currentSpeed = prefs.getInt("last_volume", 5);
+
+        boolean isOr = "OR".equalsIgnoreCase(conjunction);
+        boolean result = !isOr;
+
+        for (int i = 0; i < conditions.length(); i++) {
+            try {
+                JSONObject cond = conditions.getJSONObject(i);
+                String var = cond.getString("var");
+                String op = cond.getString("op");
+                String val = cond.getString("val");
+
+                boolean match = false;
+                if ("power".equals(var)) {
+                    int expectedPower = "ON".equalsIgnoreCase(val) ? 1 : 0;
+                    if ("==".equals(op)) {
+                        match = (currentPower == expectedPower);
+                    } else if ("!=".equals(op)) {
+                        match = (currentPower != expectedPower);
+                    }
+                } else if ("speed".equals(var)) {
+                    int currentVal = currentSpeed;
+                    int expectedVal = Integer.parseInt(val);
+                    switch (op) {
+                        case "==": match = (currentVal == expectedVal); break;
+                        case "!=": match = (currentVal != expectedVal); break;
+                        case "<":  match = (currentVal < expectedVal); break;
+                        case ">":  match = (currentVal > expectedVal); break;
+                        case "<=": match = (currentVal <= expectedVal); break;
+                        case ">=": match = (currentVal >= expectedVal); break;
+                    }
+                }
+
+                if (isOr) {
+                    result |= match;
+                    if (result) break;
+                } else {
+                    result &= match;
+                    if (!result) break;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error evaluating condition", e);
+            }
+        }
+        return result;
     }
 }

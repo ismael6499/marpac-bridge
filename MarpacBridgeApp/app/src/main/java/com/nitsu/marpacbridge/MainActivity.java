@@ -620,14 +620,38 @@ public class MainActivity extends AppCompatActivity {
                 // Time info lines
                 if (onEnabled) {
                     TextView tvOn = new TextView(this);
-                    tvOn.setText(String.format("🟢 ON   %02d:%02d  vol %d", onHour, onMinute, onVolume));
+                    StringBuilder onText = new StringBuilder(String.format("🟢 ON   %02d:%02d  vol %d", onHour, onMinute, onVolume));
+                    JSONArray onConds = obj.optJSONArray("on_conditions");
+                    if (onConds != null && onConds.length() > 0) {
+                        String conj = obj.optString("on_cond_conjunction", "AND");
+                        onText.append("  [If: ");
+                        for (int k = 0; k < onConds.length(); k++) {
+                            if (k > 0) onText.append(" ").append(conj).append(" ");
+                            JSONObject c = onConds.getJSONObject(k);
+                            onText.append(c.optString("var")).append(" ").append(c.optString("op")).append(" ").append(c.optString("val"));
+                        }
+                        onText.append("]");
+                    }
+                    tvOn.setText(onText.toString());
                     tvOn.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
                     tvOn.setTextSize(13f);
                     row.addView(tvOn);
                 }
                 if (offEnabled) {
                     TextView tvOff = new TextView(this);
-                    tvOff.setText(String.format("🔴 OFF  %02d:%02d", offHour, offMinute));
+                    StringBuilder offText = new StringBuilder(String.format("🔴 OFF  %02d:%02d", offHour, offMinute));
+                    JSONArray offConds = obj.optJSONArray("off_conditions");
+                    if (offConds != null && offConds.length() > 0) {
+                        String conj = obj.optString("off_cond_conjunction", "AND");
+                        offText.append("  [If: ");
+                        for (int k = 0; k < offConds.length(); k++) {
+                            if (k > 0) offText.append(" ").append(conj).append(" ");
+                            JSONObject c = offConds.getJSONObject(k);
+                            offText.append(c.optString("var")).append(" ").append(c.optString("op")).append(" ").append(c.optString("val"));
+                        }
+                        offText.append("]");
+                    }
+                    tvOff.setText(offText.toString());
                     tvOff.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
                     tvOff.setTextSize(13f);
                     row.addView(tvOff);
@@ -638,6 +662,107 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Error loading schedules", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void addConditionRow(Context context, LinearLayout container, String initialVar, String initialOp, String initialVal) {
+        float dp = context.getResources().getDisplayMetrics().density;
+        int margin4 = (int)(4 * dp);
+
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, margin4, 0, margin4);
+        row.setLayoutParams(lp);
+
+        // 1. Variable Spinner
+        android.widget.Spinner spVar = new android.widget.Spinner(context);
+        String[] vars = {"Power State", "Volume / Speed"};
+        android.widget.ArrayAdapter<String> adapterVar = new android.widget.ArrayAdapter<>(context,
+                android.R.layout.simple_spinner_item, vars);
+        adapterVar.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spVar.setAdapter(adapterVar);
+
+        // 2. Operator Spinner
+        android.widget.Spinner spOp = new android.widget.Spinner(context);
+
+        // 3. Value Spinner
+        android.widget.Spinner spVal = new android.widget.Spinner(context);
+
+        spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) { // Power State
+                    String[] ops = {"==", "!="};
+                    android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
+                            android.R.layout.simple_spinner_item, ops);
+                    adapterOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spOp.setAdapter(adapterOp);
+
+                    String[] vals = {"ON", "OFF"};
+                    android.widget.ArrayAdapter<String> adapterVal = new android.widget.ArrayAdapter<>(context,
+                            android.R.layout.simple_spinner_item, vals);
+                    adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spVal.setAdapter(adapterVal);
+
+                    if ("power".equals(initialVar)) {
+                        spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
+                        spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
+                    }
+                } else { // Volume / Speed
+                    String[] ops = {"==", "!=", "<", ">", "<=", ">="};
+                    android.widget.ArrayAdapter<String> adapterOp = new android.widget.ArrayAdapter<>(context,
+                            android.R.layout.simple_spinner_item, ops);
+                    adapterOp.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spOp.setAdapter(adapterOp);
+
+                    String[] vals = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+                    android.widget.ArrayAdapter<String> adapterVal = new android.widget.ArrayAdapter<>(context,
+                            android.R.layout.simple_spinner_item, vals);
+                    adapterVal.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spVal.setAdapter(adapterVal);
+
+                    if ("speed".equals(initialVar)) {
+                        int opIdx = 0;
+                        for (int j = 0; j < ops.length; j++) {
+                            if (ops[j].equals(initialOp)) { opIdx = j; break; }
+                        }
+                        spOp.setSelection(opIdx);
+
+                        int valIdx = 4;
+                        try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
+                        spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
+                    }
+                }
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+
+        if ("speed".equals(initialVar)) {
+            spVar.setSelection(1);
+        } else {
+            spVar.setSelection(0);
+        }
+
+        row.addView(spVar);
+        row.addView(spOp);
+        row.addView(spVal);
+
+        Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnDel.setText("✕");
+        btnDel.setPadding(0, 0, 0, 0);
+        btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(36 * dp), (int)(36 * dp));
+        delLp.setMargins((int)(6 * dp), 0, 0, 0);
+        btnDel.setLayoutParams(delLp);
+        btnDel.setOnClickListener(v -> container.removeView(row));
+        row.addView(btnDel);
+
+        row.setTag(new Object[]{spVar, spOp, spVal});
+        container.addView(row);
     }
 
     @android.annotation.SuppressLint("UseSwitchCompatOrMaterialCode")
@@ -674,39 +799,102 @@ public class MainActivity extends AppCompatActivity {
         rgType.addView(rbLocal);
         root.addView(rgType);
 
+        // State variables for time selection
+        final int[] onTime = {22, 0};
+        final int[] offTime = {7, 0};
+
         // ── ON section ───────────────────────────────────────────────
         CheckBox cbOn = new CheckBox(this);
-        cbOn.setText("  🟢  Turn ON at:");
+        cbOn.setText("  🟢  Turn ON");
         cbOn.setChecked(true);
         cbOn.setEnabled(false); // Hardware forces both ON & OFF
         cbOn.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
         cbOn.setTextSize(15f);
         root.addView(cbOn);
 
-        android.widget.TimePicker tpOn = new android.widget.TimePicker(this);
-        tpOn.setIs24HourView(true);
-        tpOn.setHour(22); tpOn.setMinute(0);
-        root.addView(tpOn);
+        LinearLayout layoutOnContainer = new LinearLayout(this);
+        layoutOnContainer.setOrientation(LinearLayout.VERTICAL);
+        layoutOnContainer.setPadding((int)(12 * dp), 0, 0, 0);
+
+        // Time ON row
+        LinearLayout onTimeRow = new LinearLayout(this);
+        onTimeRow.setOrientation(LinearLayout.HORIZONTAL);
+        onTimeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView tvOnTimeLbl = new TextView(this);
+        tvOnTimeLbl.setText("Time ON: ");
+        tvOnTimeLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
+        tvOnTimeLbl.setTextSize(14f);
+        Button btnTimeOn = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnTimeOn.setText(String.format("%02d:%02d", onTime[0], onTime[1]));
+        btnTimeOn.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
+        btnTimeOn.setOnClickListener(v -> {
+            new android.app.TimePickerDialog(this, (view, hourOfDay, minute) -> {
+                onTime[0] = hourOfDay;
+                onTime[1] = minute;
+                btnTimeOn.setText(String.format("%02d:%02d", hourOfDay, minute));
+            }, onTime[0], onTime[1], true).show();
+        });
+        onTimeRow.addView(tvOnTimeLbl);
+        onTimeRow.addView(btnTimeOn);
+        layoutOnContainer.addView(onTimeRow);
 
         TextView tvVolLabel = new TextView(this);
         tvVolLabel.setText("Volume (1–10):");
         tvVolLabel.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
         tvVolLabel.setTextSize(13f);
-        LinearLayout.LayoutParams volLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        volLp.setMargins(0, pad8, 0, 0);
-        tvVolLabel.setLayoutParams(volLp);
-        root.addView(tvVolLabel);
+        layoutOnContainer.addView(tvVolLabel);
 
         NumberPicker npVol = new NumberPicker(this);
         npVol.setMinValue(1); npVol.setMaxValue(10);
         npVol.setValue(prefs.getInt("last_volume", 5));
         npVol.setDescendantFocusability(NumberPicker.FOCUS_BLOCK_DESCENDANTS);
-        root.addView(npVol);
+        layoutOnContainer.addView(npVol);
+
+        // ON Conditions container (Local only)
+        LinearLayout layoutOnCondSection = new LinearLayout(this);
+        layoutOnCondSection.setOrientation(LinearLayout.VERTICAL);
+        layoutOnCondSection.setVisibility(View.GONE); // Default hardware mode
+
+        TextView tvOnCondTitle = new TextView(this);
+        tvOnCondTitle.setText("⚡ Conditions to turn ON:");
+        tvOnCondTitle.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
+        tvOnCondTitle.setTextSize(13f);
+        tvOnCondTitle.setPadding(0, pad8, 0, 4);
+        layoutOnCondSection.addView(tvOnCondTitle);
+
+        LinearLayout onConjRow = new LinearLayout(this);
+        onConjRow.setOrientation(LinearLayout.HORIZONTAL);
+        onConjRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView tvOnConjLbl = new TextView(this);
+        tvOnConjLbl.setText("Match mode: ");
+        tvOnConjLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
+        tvOnConjLbl.setTextSize(12f);
+        android.widget.Spinner spOnConj = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> conjAdapter1 = new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, new String[]{"ALL conditions (AND)", "ANY condition (OR)"});
+        conjAdapter1.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spOnConj.setAdapter(conjAdapter1);
+        onConjRow.addView(tvOnConjLbl);
+        onConjRow.addView(spOnConj);
+        layoutOnCondSection.addView(onConjRow);
+
+        LinearLayout containerOnConds = new LinearLayout(this);
+        containerOnConds.setOrientation(LinearLayout.VERTICAL);
+        layoutOnCondSection.addView(containerOnConds);
+
+        Button btnAddOnCond = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnAddOnCond.setText("+ Add ON Condition");
+        btnAddOnCond.setTextSize(12f);
+        btnAddOnCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
+        btnAddOnCond.setOnClickListener(v -> addConditionRow(this, containerOnConds, "power", "==", "OFF"));
+        layoutOnCondSection.addView(btnAddOnCond);
+
+        layoutOnContainer.addView(layoutOnCondSection);
+        root.addView(layoutOnContainer);
 
         // ── OFF section ──────────────────────────────────────────────
         CheckBox cbOff = new CheckBox(this);
-        cbOff.setText("  🔴  Turn OFF at:");
+        cbOff.setText("  🔴  Turn OFF");
         cbOff.setChecked(true);
         cbOff.setEnabled(false); // Hardware forces both ON & OFF
         cbOff.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
@@ -717,35 +905,97 @@ public class MainActivity extends AppCompatActivity {
         cbOff.setLayoutParams(offCbLp);
         root.addView(cbOff);
 
-        android.widget.TimePicker tpOff = new android.widget.TimePicker(this);
-        tpOff.setIs24HourView(true);
-        tpOff.setHour(7); tpOff.setMinute(0);
-        root.addView(tpOff);
+        LinearLayout layoutOffContainer = new LinearLayout(this);
+        layoutOffContainer.setOrientation(LinearLayout.VERTICAL);
+        layoutOffContainer.setPadding((int)(12 * dp), 0, 0, 0);
+
+        // Time OFF row
+        LinearLayout offTimeRow = new LinearLayout(this);
+        offTimeRow.setOrientation(LinearLayout.HORIZONTAL);
+        offTimeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView tvOffTimeLbl = new TextView(this);
+        tvOffTimeLbl.setText("Time OFF: ");
+        tvOffTimeLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
+        tvOffTimeLbl.setTextSize(14f);
+        Button btnTimeOff = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnTimeOff.setText(String.format("%02d:%02d", offTime[0], offTime[1]));
+        btnTimeOff.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
+        btnTimeOff.setOnClickListener(v -> {
+            new android.app.TimePickerDialog(this, (view, hourOfDay, minute) -> {
+                offTime[0] = hourOfDay;
+                offTime[1] = minute;
+                btnTimeOff.setText(String.format("%02d:%02d", hourOfDay, minute));
+            }, offTime[0], offTime[1], true).show();
+        });
+        offTimeRow.addView(tvOffTimeLbl);
+        offTimeRow.addView(btnTimeOff);
+        layoutOffContainer.addView(offTimeRow);
+
+        // OFF Conditions container (Local only)
+        LinearLayout layoutOffCondSection = new LinearLayout(this);
+        layoutOffCondSection.setOrientation(LinearLayout.VERTICAL);
+        layoutOffCondSection.setVisibility(View.GONE); // Default hardware mode
+
+        TextView tvOffCondTitle = new TextView(this);
+        tvOffCondTitle.setText("⚡ Conditions to turn OFF:");
+        tvOffCondTitle.setTextColor(ContextCompat.getColor(this, R.color.text_bright));
+        tvOffCondTitle.setTextSize(13f);
+        tvOffCondTitle.setPadding(0, pad8, 0, 4);
+        layoutOffCondSection.addView(tvOffCondTitle);
+
+        LinearLayout offConjRow = new LinearLayout(this);
+        offConjRow.setOrientation(LinearLayout.HORIZONTAL);
+        offConjRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView tvOffConjLbl = new TextView(this);
+        tvOffConjLbl.setText("Match mode: ");
+        tvOffConjLbl.setTextColor(ContextCompat.getColor(this, R.color.text_muted));
+        tvOffConjLbl.setTextSize(12f);
+        android.widget.Spinner spOffConj = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> conjAdapter2 = new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, new String[]{"ALL conditions (AND)", "ANY condition (OR)"});
+        conjAdapter2.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spOffConj.setAdapter(conjAdapter2);
+        offConjRow.addView(tvOffConjLbl);
+        offConjRow.addView(spOffConj);
+        layoutOffCondSection.addView(offConjRow);
+
+        LinearLayout containerOffConds = new LinearLayout(this);
+        containerOffConds.setOrientation(LinearLayout.VERTICAL);
+        layoutOffCondSection.addView(containerOffConds);
+
+        Button btnAddOffCond = new Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnAddOffCond.setText("+ Add OFF Condition");
+        btnAddOffCond.setTextSize(12f);
+        btnAddOffCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
+        btnAddOffCond.setOnClickListener(v -> addConditionRow(this, containerOffConds, "power", "==", "ON"));
+        layoutOffCondSection.addView(btnAddOffCond);
+
+        layoutOffContainer.addView(layoutOffCondSection);
+        root.addView(layoutOffContainer);
 
         // Dynamic behavior depending on type choice
         rgType.setOnCheckedChangeListener((group, checkedId) -> {
             boolean isLocal = (checkedId == rbLocal.getId());
             cbOn.setEnabled(isLocal);
             cbOff.setEnabled(isLocal);
+            layoutOnCondSection.setVisibility(isLocal && cbOn.isChecked() ? View.VISIBLE : View.GONE);
+            layoutOffCondSection.setVisibility(isLocal && cbOff.isChecked() ? View.VISIBLE : View.GONE);
             if (!isLocal) {
-                // Force active state for hardware
                 cbOn.setChecked(true);
                 cbOff.setChecked(true);
-                tpOn.setVisibility(View.VISIBLE);
-                tpOff.setVisibility(View.VISIBLE);
-                tvVolLabel.setVisibility(View.VISIBLE);
-                npVol.setVisibility(View.VISIBLE);
+                layoutOnContainer.setVisibility(View.VISIBLE);
+                layoutOffContainer.setVisibility(View.VISIBLE);
             }
         });
 
         // Local check listeners
         cbOn.setOnCheckedChangeListener((cb, isChecked) -> {
-            tpOn.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-            tvVolLabel.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-            npVol.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            layoutOnContainer.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            layoutOnCondSection.setVisibility(rbLocal.isChecked() && isChecked ? View.VISIBLE : View.GONE);
         });
         cbOff.setOnCheckedChangeListener((cb, isChecked) -> {
-            tpOff.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            layoutOffContainer.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            layoutOffCondSection.setVisibility(rbLocal.isChecked() && isChecked ? View.VISIBLE : View.GONE);
         });
 
         // ── Days of week (2 rows: 4 + 3) ────────────────────────────
@@ -762,7 +1012,6 @@ public class MainActivity extends AppCompatActivity {
         String[] dayNames = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
         CheckBox[] dayBoxes = new CheckBox[7];
 
-        // Row 1: Sun Mon Tue Wed
         LinearLayout daysRow1 = new LinearLayout(this);
         daysRow1.setOrientation(LinearLayout.HORIZONTAL);
         daysRow1.setLayoutParams(new LinearLayout.LayoutParams(
@@ -779,7 +1028,6 @@ public class MainActivity extends AppCompatActivity {
         }
         root.addView(daysRow1);
 
-        // Row 2: Thu Fri Sat
         LinearLayout daysRow2 = new LinearLayout(this);
         daysRow2.setOrientation(LinearLayout.HORIZONTAL);
         daysRow2.setLayoutParams(new LinearLayout.LayoutParams(
@@ -823,7 +1071,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     JSONArray arr = new JSONArray(prefs.getString("schedules_json", "[]"));
                     
-                    // Hardware slots verification limit
                     if (!isLocal) {
                         int hwCount = 0;
                         for (int j = 0; j < arr.length(); j++) {
@@ -845,27 +1092,66 @@ public class MainActivity extends AppCompatActivity {
                     plan.put("type", isLocal ? "local" : "hardware");
                     
                     plan.put("on_enabled",  wantsOn);
-                    plan.put("on_hour",     tpOn.getHour());
-                    plan.put("on_minute",   tpOn.getMinute());
+                    plan.put("on_hour",     onTime[0]);
+                    plan.put("on_minute",   onTime[1]);
                     plan.put("on_volume",   npVol.getValue());
                     
                     plan.put("off_enabled", wantsOff);
-                    plan.put("off_hour",    tpOff.getHour());
-                    plan.put("off_minute",  tpOff.getMinute());
+                    plan.put("off_hour",    offTime[0]);
+                    plan.put("off_minute",  offTime[1]);
                     
+                    if (isLocal) {
+                        // Serialize ON conditions
+                        plan.put("on_cond_conjunction", spOnConj.getSelectedItemPosition() == 1 ? "OR" : "AND");
+                        JSONArray onCondArr = new JSONArray();
+                        for (int k = 0; k < containerOnConds.getChildCount(); k++) {
+                            View r = containerOnConds.getChildAt(k);
+                            Object[] tag = (Object[]) r.getTag();
+                            if (tag != null && tag.length == 3) {
+                                android.widget.Spinner spVar = (android.widget.Spinner) tag[0];
+                                android.widget.Spinner spOp = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spVal = (android.widget.Spinner) tag[2];
+                                JSONObject cObj = new JSONObject();
+                                cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
+                                cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
+                                cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                onCondArr.put(cObj);
+                            }
+                        }
+                        plan.put("on_conditions", onCondArr);
+
+                        // Serialize OFF conditions
+                        plan.put("off_cond_conjunction", spOffConj.getSelectedItemPosition() == 1 ? "OR" : "AND");
+                        JSONArray offCondArr = new JSONArray();
+                        for (int k = 0; k < containerOffConds.getChildCount(); k++) {
+                            View r = containerOffConds.getChildAt(k);
+                            Object[] tag = (Object[]) r.getTag();
+                            if (tag != null && tag.length == 3) {
+                                android.widget.Spinner spVar = (android.widget.Spinner) tag[0];
+                                android.widget.Spinner spOp = (android.widget.Spinner) tag[1];
+                                android.widget.Spinner spVal = (android.widget.Spinner) tag[2];
+                                JSONObject cObj = new JSONObject();
+                                cObj.put("var", spVar.getSelectedItemPosition() == 0 ? "power" : "speed");
+                                cObj.put("op", spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==");
+                                cObj.put("val", spVal.getSelectedItem() != null ? spVal.getSelectedItem().toString() : "");
+                                offCondArr.put(cObj);
+                            }
+                        }
+                        plan.put("off_conditions", offCondArr);
+                    }
+
                     // Legacy fields
                     plan.put("action",  wantsOn ? 1 : 0);
-                    plan.put("hour",    wantsOn ? tpOn.getHour() : tpOff.getHour());
-                    plan.put("minute",  wantsOn ? tpOn.getMinute() : tpOff.getMinute());
+                    plan.put("hour",    wantsOn ? onTime[0] : offTime[0]);
+                    plan.put("minute",  wantsOn ? onTime[1] : offTime[1]);
                     plan.put("volume",  npVol.getValue());
 
                     arr.put(plan);
                     prefs.edit().putString("schedules_json", arr.toString()).apply();
                     
                     if (isLocal) {
-                        checkExactAlarmPermissionAndSchedule(newId, wantsOn, tpOn.getHour(), tpOn.getMinute(), wantsOff, tpOff.getHour(), tpOff.getMinute());
+                        checkExactAlarmPermissionAndSchedule(newId, wantsOn, onTime[0], onTime[1], wantsOff, offTime[0], offTime[1]);
                     } else {
-                        // Hardware sync
                         startBLEServiceWithAction("sync_schedules");
                     }
                     
