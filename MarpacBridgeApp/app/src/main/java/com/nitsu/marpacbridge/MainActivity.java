@@ -711,6 +711,45 @@ public class MainActivity extends AppCompatActivity {
         return adapter;
     }
 
+    private void updateSubSpinners(Context context, android.widget.Spinner spOp, android.widget.Spinner spVal, int position, boolean isInit, String initialVar, String initialOp, String initialVal) {
+        if (position == 0) { // Power
+            String[] ops = {"==", "!="};
+            spOp.setAdapter(createSpinnerAdapter(context, ops));
+
+            String[] vals = {"ON", "OFF"};
+            spVal.setAdapter(createSpinnerAdapter(context, vals));
+
+            if (isInit && "power".equalsIgnoreCase(initialVar)) {
+                spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
+                spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
+            } else {
+                spOp.setSelection(0);
+                spVal.setSelection(0);
+            }
+        } else { // Speed
+            String[] ops = {"==", "!=", "<", ">", "<=", ">="};
+            spOp.setAdapter(createSpinnerAdapter(context, ops));
+
+            String[] vals = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+            spVal.setAdapter(createSpinnerAdapter(context, vals));
+
+            if (isInit && "speed".equalsIgnoreCase(initialVar)) {
+                int opIdx = 0;
+                for (int j = 0; j < ops.length; j++) {
+                    if (ops[j].equals(initialOp)) { opIdx = j; break; }
+                }
+                spOp.setSelection(opIdx);
+
+                int valIdx = 4;
+                try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
+                spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
+            } else {
+                spOp.setSelection(0);
+                spVal.setSelection(4); // Default speed 5
+            }
+        }
+    }
+
     private void addConditionRow(Context context, LinearLayout container, String initialOpenParen, String initialVar, String initialOp, String initialVal, String initialCloseParen, String initialLogicOp) {
         float dp = context.getResources().getDisplayMetrics().density;
         int margin4 = (int)(4 * dp);
@@ -753,42 +792,7 @@ public class MainActivity extends AppCompatActivity {
         spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position == 0) { // Power
-                    String[] ops = {"==", "!="};
-                    spOp.setAdapter(createSpinnerAdapter(context, ops));
-
-                    String[] vals = {"ON", "OFF"};
-                    spVal.setAdapter(createSpinnerAdapter(context, vals));
-
-                    if (isInitializing[0] && "power".equalsIgnoreCase(initialVar)) {
-                        spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
-                        spVal.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
-                    } else {
-                        spOp.setSelection(0);
-                        spVal.setSelection(0);
-                    }
-                } else { // Speed
-                    String[] ops = {"==", "!=", "<", ">", "<=", ">="};
-                    spOp.setAdapter(createSpinnerAdapter(context, ops));
-
-                    String[] vals = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
-                    spVal.setAdapter(createSpinnerAdapter(context, vals));
-
-                    if (isInitializing[0] && "speed".equalsIgnoreCase(initialVar)) {
-                        int opIdx = 0;
-                        for (int j = 0; j < ops.length; j++) {
-                            if (ops[j].equals(initialOp)) { opIdx = j; break; }
-                        }
-                        spOp.setSelection(opIdx);
-
-                        int valIdx = 4;
-                        try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
-                        spVal.setSelection(Math.max(0, Math.min(9, valIdx)));
-                    } else {
-                        spOp.setSelection(0);
-                        spVal.setSelection(4); // Default speed 5
-                    }
-                }
+                updateSubSpinners(context, spOp, spVal, position, isInitializing[0], initialVar, initialOp, initialVal);
                 isInitializing[0] = false;
             }
 
@@ -796,11 +800,10 @@ public class MainActivity extends AppCompatActivity {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        if ("speed".equalsIgnoreCase(initialVar)) {
-            spVar.setSelection(1);
-        } else {
-            spVar.setSelection(0);
-        }
+        int initialPos = "speed".equalsIgnoreCase(initialVar) ? 1 : 0;
+        spVar.setSelection(initialPos);
+        updateSubSpinners(context, spOp, spVal, initialPos, true, initialVar, initialOp, initialVal);
+        isInitializing[0] = false;
 
         topRow.addView(spVar);
         topRow.addView(spOp);
