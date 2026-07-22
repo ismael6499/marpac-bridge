@@ -646,7 +646,7 @@ public class BLEService extends Service {
                     ((LinkedList<String>) commandQueue).addFirst(syncCmd);
                 }
             }
-            serviceHandler.post(BLEService.this::processQueue);
+            serviceHandler.postDelayed(BLEService.this::processQueue, 300);
         }
 
         @Override
@@ -665,7 +665,7 @@ public class BLEService extends Service {
                     broadcastCmdState("ERROR");
                 }
             }
-            serviceHandler.post(BLEService.this::processQueue);
+            serviceHandler.postDelayed(BLEService.this::processQueue, 300);
         }
 
         @Override
