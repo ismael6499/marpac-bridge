@@ -468,6 +468,10 @@ public class MainActivity extends AppCompatActivity {
             lastUpdateStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
         }
         tvMachineLastUpdate.setText("Último registro: " + lastUpdateStr);
+
+        if (tvVolumeLabel != null) {
+            tvVolumeLabel.setText(String.format("Volume / Speed: %02d", volume));
+        }
     }
 
     private void broadcastStateChanged(int power, int vol) {
