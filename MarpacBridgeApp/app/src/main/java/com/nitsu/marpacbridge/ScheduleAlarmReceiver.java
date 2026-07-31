@@ -99,15 +99,32 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
                     serviceIntent.putExtra("mac_address", mac);
                     serviceIntent.putExtra("unit_number", unitNum);
 
+                    SharedPreferences.Editor editor = prefs.edit();
+
                     if (alarmType == 0) {
                         int volume = target.optInt("on_volume", 5);
                         serviceIntent.putExtra("command", "power");
                         serviceIntent.putExtra("state", 1);
                         serviceIntent.putExtra("level", volume);
+                        editor.putInt("last_power_state", 1);
+                        editor.putInt("last_volume", volume);
                     } else {
                         serviceIntent.putExtra("command", "power");
                         serviceIntent.putExtra("state", 0);
+                        editor.putInt("last_power_state", 0);
                     }
+                    editor.apply();
+
+                    // Broadcast state update immediately for Tasker / UI / Watch
+                    int curPower = prefs.getInt("last_power_state", 0);
+                    int curVol = prefs.getInt("last_volume", 5);
+                    String timeStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                    Intent stateBroadcast = new Intent("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+                    stateBroadcast.putExtra("power", curPower);
+                    stateBroadcast.putExtra("power_text", curPower == 1 ? "ON" : "OFF");
+                    stateBroadcast.putExtra("volume", curVol);
+                    stateBroadcast.putExtra("last_update", timeStr);
+                    context.sendBroadcast(stateBroadcast);
 
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -346,7 +363,7 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
                     } else if ("!=".equals(op)) {
                         match = (currentPower != expectedPower);
                     }
-                } else if ("speed".equals(var)) {
+                } else if ("speed".equalsIgnoreCase(var) || "volumen".equalsIgnoreCase(var)) {
                     int currentVal = currentSpeed;
                     int expectedVal = Integer.parseInt(val);
                     switch (op) {

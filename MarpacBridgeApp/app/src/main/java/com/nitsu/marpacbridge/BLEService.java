@@ -241,6 +241,7 @@ public class BLEService extends Service {
                     .edit()
                     .putInt("last_power_state", state)
                     .apply();
+                notifyStateChange();
                 break;
 
             case "volume":
@@ -321,6 +322,20 @@ public class BLEService extends Service {
         getSharedPreferences("MarpacBridgePrefs", MODE_PRIVATE)
                 .edit().putInt("last_volume", toLevel).apply();
         addLog("Volume set to: " + toLevel);
+        notifyStateChange();
+    }
+
+    private void notifyStateChange() {
+        SharedPreferences prefs = getSharedPreferences("MarpacBridgePrefs", MODE_PRIVATE);
+        int curPower = prefs.getInt("last_power_state", 0);
+        int curVol = prefs.getInt("last_volume", 5);
+        String timeStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        Intent intent = new Intent("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+        intent.putExtra("power", curPower);
+        intent.putExtra("power_text", curPower == 1 ? "ON" : "OFF");
+        intent.putExtra("volume", curVol);
+        intent.putExtra("last_update", timeStr);
+        sendBroadcast(intent);
     }
 
     private synchronized void processQueue() {

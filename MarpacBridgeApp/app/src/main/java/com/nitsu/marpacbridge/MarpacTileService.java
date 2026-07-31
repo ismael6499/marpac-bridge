@@ -46,6 +46,16 @@ public class MarpacTileService extends TileService {
             tile.setState(newState == 1 ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
             tile.updateTile();
 
+            // Broadcast state update
+            int curVol = prefs.getInt("last_volume", 5);
+            String timeStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            Intent stateIntent = new Intent("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+            stateIntent.putExtra("power", newState);
+            stateIntent.putExtra("power_text", newState == 1 ? "ON" : "OFF");
+            stateIntent.putExtra("volume", curVol);
+            stateIntent.putExtra("last_update", timeStr);
+            sendBroadcast(stateIntent);
+
             // Trigger BLEService to toggle the machine
             Intent serviceIntent = new Intent(this, BLEService.class);
             serviceIntent.setAction(BLEService.ACTION_EXECUTE);

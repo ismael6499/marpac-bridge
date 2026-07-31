@@ -50,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView tvUnitNumber, tvVolumeLabel, tvToggleLogs, tvLogs;
     private TextView tvStatusIcon;
+    private TextView tvMachineStateBadge, tvMachineStateTitle, tvMachineVolumeDetail, tvMachineLastUpdate;
+    private View tvMachineStateDot;
     private EditText etMacAddress;
     private Button btnScan, btnQueryUnit, btnPowerOn, btnPowerOff, btnSyncTime,
             btnCopyLogs, btnClearLogs, btnDisconnect, btnForget, btnVolUp, btnVolDown, btnAddSchedule;
@@ -94,6 +96,11 @@ public class MainActivity extends AppCompatActivity {
                     final ScrollView sv = (ScrollView) tvLogs.getParent();
                     sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
                 }
+            } else if ("com.nitsu.marpacbridge.ACTION_STATE_CHANGED".equals(action) || "com.nitsu.marpacbridge.ACTION_STATE_RESPONSE".equals(action)) {
+                int p = intent.getIntExtra("power", prefs.getInt("last_power_state", 0));
+                int v = intent.getIntExtra("volume", prefs.getInt("last_volume", 5));
+                String timeStr = intent.getStringExtra("last_update");
+                updateMachineStateUI(p, v, timeStr);
             }
         }
     };
@@ -135,18 +142,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initUI() {
-        tvUnitNumber = findViewById(R.id.tv_unit_number);
-        tvVolumeLabel = findViewById(R.id.tv_volume_label);
         etMacAddress = findViewById(R.id.et_mac_address);
         btnScan = findViewById(R.id.btn_scan);
         btnQueryUnit = findViewById(R.id.btn_query_unit);
         btnDisconnect = findViewById(R.id.btn_disconnect);
         btnForget = findViewById(R.id.btn_forget);
+        tvUnitNumber = findViewById(R.id.tv_unit_number);
         btnPowerOn = findViewById(R.id.btn_power_on);
         btnPowerOff = findViewById(R.id.btn_power_off);
+        tvVolumeLabel = findViewById(R.id.tv_volume_label);
         btnSyncTime = findViewById(R.id.btn_sync_time);
         btnHelp = findViewById(R.id.btn_help);
-        
         layoutLogsHeader = findViewById(R.id.layout_logs_header);
         layoutLogsContainer = findViewById(R.id.layout_logs_container);
         tvToggleLogs = findViewById(R.id.tv_toggle_logs);
@@ -159,6 +165,12 @@ public class MainActivity extends AppCompatActivity {
         btnAddSchedule = findViewById(R.id.btn_add_schedule);
         llSchedulesContainer = findViewById(R.id.ll_schedules_container);
         tvStatusIcon = findViewById(R.id.tv_status_icon);
+
+        tvMachineStateBadge = findViewById(R.id.tv_machine_state_badge);
+        tvMachineStateTitle = findViewById(R.id.tv_machine_state_title);
+        tvMachineStateDot = findViewById(R.id.tv_machine_state_dot);
+        tvMachineVolumeDetail = findViewById(R.id.tv_machine_volume_detail);
+        tvMachineLastUpdate = findViewById(R.id.tv_machine_last_update);
     }
 
     private void loadSavedConfig() {
@@ -167,7 +179,9 @@ public class MainActivity extends AppCompatActivity {
         String savedUnit = prefs.getString("unit_number", "Not Queried");
         tvUnitNumber.setText(savedUnit);
         int savedVol = prefs.getInt("last_volume", 5);
+        int savedPower = prefs.getInt("last_power_state", 0);
         tvVolumeLabel.setText(String.format("Volume / Speed: %02d", savedVol));
+        updateMachineStateUI(savedPower, savedVol, null);
         renderSchedules();
     }
 
@@ -218,11 +232,19 @@ public class MainActivity extends AppCompatActivity {
 
         btnPowerOn.setOnClickListener(v -> checkPairingAndExecute(() -> {
             saveMacAddress();
+            prefs.edit().putInt("last_power_state", 1).apply();
+            int curVol = prefs.getInt("last_volume", 5);
+            updateMachineStateUI(1, curVol, null);
+            broadcastStateChanged(1, curVol);
             startBLEServiceWithAction("power", "state", 1);
         }));
 
         btnPowerOff.setOnClickListener(v -> checkPairingAndExecute(() -> {
             saveMacAddress();
+            prefs.edit().putInt("last_power_state", 0).apply();
+            int curVol = prefs.getInt("last_volume", 5);
+            updateMachineStateUI(0, curVol, null);
+            broadcastStateChanged(0, curVol);
             startBLEServiceWithAction("power", "state", 0);
         }));
 
@@ -237,6 +259,9 @@ public class MainActivity extends AppCompatActivity {
                 int next = cur - 1;
                 tvVolumeLabel.setText(String.format("Volume / Speed: %02d", next));
                 prefs.edit().putInt("last_volume", next).apply();
+                int curPower = prefs.getInt("last_power_state", 0);
+                updateMachineStateUI(curPower, next, null);
+                broadcastStateChanged(curPower, next);
                 saveMacAddress();
                 startBLEServiceWithAction("volume", "level", next);
             }
@@ -248,6 +273,9 @@ public class MainActivity extends AppCompatActivity {
                 int next = cur + 1;
                 tvVolumeLabel.setText(String.format("Volume / Speed: %02d", next));
                 prefs.edit().putInt("last_volume", next).apply();
+                int curPower = prefs.getInt("last_power_state", 0);
+                updateMachineStateUI(curPower, next, null);
+                broadcastStateChanged(curPower, next);
                 saveMacAddress();
                 startBLEServiceWithAction("volume", "level", next);
             }
@@ -403,16 +431,60 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        int curPower = prefs.getInt("last_power_state", 0);
+        int curVol = prefs.getInt("last_volume", 5);
+        updateMachineStateUI(curPower, curVol, null);
+
         IntentFilter filter = new IntentFilter();
         filter.addAction(BLEService.ACTION_STATUS_UPDATE);
         filter.addAction(BLEService.ACTION_UNIT_NUMBER_FOUND);
         filter.addAction(BLEService.ACTION_LOG);
         filter.addAction(BLEService.ACTION_CMD_STATE);
+        filter.addAction("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+        filter.addAction("com.nitsu.marpacbridge.ACTION_STATE_RESPONSE");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(bleReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(bleReceiver, filter);
         }
+    }
+
+    private void updateMachineStateUI(int powerState, int volume, String lastUpdateStr) {
+        if (tvMachineStateBadge == null) return;
+
+        boolean isOn = (powerState == 1);
+        if (isOn) {
+            tvMachineStateBadge.setText("ENCENDIDO");
+            tvMachineStateBadge.setTextColor(ContextCompat.getColor(this, R.color.green_neon));
+            if (tvMachineStateDot != null) {
+                tvMachineStateDot.setBackgroundResource(R.drawable.status_badge_bg);
+                tvMachineStateDot.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.green_neon)));
+            }
+            tvMachineVolumeDetail.setText(String.format("Volumen actual: %02d", volume));
+        } else {
+            tvMachineStateBadge.setText("APAGADO");
+            tvMachineStateBadge.setTextColor(ContextCompat.getColor(this, R.color.red_neon));
+            if (tvMachineStateDot != null) {
+                tvMachineStateDot.setBackgroundResource(R.drawable.status_badge_bg);
+                tvMachineStateDot.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.red_neon)));
+            }
+            tvMachineVolumeDetail.setText(String.format("Último volumen: %02d", volume));
+        }
+
+        if (lastUpdateStr == null || lastUpdateStr.isEmpty()) {
+            lastUpdateStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        }
+        tvMachineLastUpdate.setText("Último registro: " + lastUpdateStr);
+    }
+
+    private void broadcastStateChanged(int power, int vol) {
+        String timeStr = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        Intent stateIntent = new Intent("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+        stateIntent.putExtra("power", power);
+        stateIntent.putExtra("power_text", power == 1 ? "ON" : "OFF");
+        stateIntent.putExtra("volume", vol);
+        stateIntent.putExtra("last_update", timeStr);
+        sendBroadcast(stateIntent);
     }
 
     @Override
@@ -636,13 +708,14 @@ public class MainActivity extends AppCompatActivity {
                             JSONObject c = onConds.getJSONObject(k);
                             String openParen = c.optString("open_paren", "");
                             String var = c.optString("var");
+                            String displayVar = ("speed".equalsIgnoreCase(var) || "volumen".equalsIgnoreCase(var)) ? "Volumen" : var;
                             String op = c.optString("op");
                             String val = c.optString("val");
                             String closeParen = c.optString("close_paren", "");
                             String logicOp = c.optString("logic_op", "AND");
                             
                             if (k > 0) onText.append(" ").append(logicOp).append(" ");
-                            onText.append(openParen).append(var).append(" ").append(op).append(" ").append(val).append(closeParen);
+                            onText.append(openParen).append(displayVar).append(" ").append(op).append(" ").append(val).append(closeParen);
                         }
                         onText.append("]");
                     }
@@ -661,13 +734,14 @@ public class MainActivity extends AppCompatActivity {
                             JSONObject c = offConds.getJSONObject(k);
                             String openParen = c.optString("open_paren", "");
                             String var = c.optString("var");
+                            String displayVar = ("speed".equalsIgnoreCase(var) || "volumen".equalsIgnoreCase(var)) ? "Volumen" : var;
                             String op = c.optString("op");
                             String val = c.optString("val");
                             String closeParen = c.optString("close_paren", "");
                             String logicOp = c.optString("logic_op", "AND");
                             
                             if (k > 0) offText.append(" ").append(logicOp).append(" ");
-                            offText.append(openParen).append(var).append(" ").append(op).append(" ").append(val).append(closeParen);
+                            offText.append(openParen).append(displayVar).append(" ").append(op).append(" ").append(val).append(closeParen);
                         }
                         offText.append("]");
                     }
@@ -715,29 +789,53 @@ public class MainActivity extends AppCompatActivity {
         float dp = context.getResources().getDisplayMetrics().density;
         int margin4 = (int)(4 * dp);
         int pad8 = (int)(8 * dp);
+        int pad12 = (int)(12 * dp);
 
+        // Card Container (Full width 100%)
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(pad8, pad8, pad8, pad8);
+        card.setPadding(pad12, pad12, pad12, pad12);
         card.setBackgroundResource(android.R.drawable.dialog_holo_dark_frame);
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardLp.setMargins(0, margin4, 0, margin4);
+        cardLp.setMargins(0, margin4 + 2, 0, margin4 + 4);
         card.setLayoutParams(cardLp);
 
-        LinearLayout topRow = new LinearLayout(context);
-        topRow.setOrientation(LinearLayout.HORIZONTAL);
-        topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        // Header Row: Summary text + Delete Button
+        LinearLayout headerRow = new LinearLayout(context);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        TextView tvSummary = new TextView(context);
+        tvSummary.setTextColor(ContextCompat.getColor(context, R.color.accent_neon));
+        tvSummary.setTextSize(13f);
+        tvSummary.setTypeface(null, android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams summaryLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        tvSummary.setLayoutParams(summaryLp);
+
+        Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnDel.setText("✕");
+        btnDel.setPadding(0, 0, 0, 0);
+        btnDel.setTextSize(14f);
+        btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(34 * dp), (int)(34 * dp));
+        btnDel.setLayoutParams(delLp);
+        btnDel.setOnClickListener(v -> container.removeView(card));
+
+        headerRow.addView(tvSummary);
+        headerRow.addView(btnDel);
+        card.addView(headerRow);
 
         // 1. Open Paren Spinner
         android.widget.Spinner spOpenParen = new android.widget.Spinner(context);
-        spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"", "(", "(("}));
+        spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"none", "(", "(("}));
         if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
         else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
+        else spOpenParen.setSelection(0);
 
-        // 2. Variable Spinner ("Power" / "Speed")
+        // 2. Variable Spinner ("Volumen" / "Power")
         android.widget.Spinner spVar = new android.widget.Spinner(context);
-        spVar.setAdapter(createSpinnerAdapter(context, new String[]{"Power", "Speed"}));
+        spVar.setAdapter(createSpinnerAdapter(context, new String[]{"Volumen", "Power"}));
 
         // 3. Operator Spinner
         android.widget.Spinner spOp = new android.widget.Spinner(context);
@@ -752,9 +850,19 @@ public class MainActivity extends AppCompatActivity {
         android.widget.Spinner spValSpeed = new android.widget.Spinner(context);
         spValSpeed.setAdapter(createSpinnerAdapter(context, new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}));
 
-        boolean isSpeedInit = "speed".equalsIgnoreCase(initialVar);
+        boolean isPowerInit = "power".equalsIgnoreCase(initialVar);
 
-        if (isSpeedInit) {
+        // Flag to prevent onItemSelected from resetting initial operator selection during layout binding
+        final boolean[] isInitializing = {true};
+
+        if (isPowerInit) {
+            spOp.setAdapter(adapterOpPower);
+            spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
+            spValPower.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
+
+            spValPower.setVisibility(View.VISIBLE);
+            spValSpeed.setVisibility(View.GONE);
+        } else {
             spOp.setAdapter(adapterOpSpeed);
             int opIdx = 0;
             String[] ops = {"==", "!=", "<", ">", "<=", ">="};
@@ -769,45 +877,18 @@ public class MainActivity extends AppCompatActivity {
 
             spValPower.setVisibility(View.GONE);
             spValSpeed.setVisibility(View.VISIBLE);
-        } else {
-            spOp.setAdapter(adapterOpPower);
-            spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
-            spValPower.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
-
-            spValPower.setVisibility(View.VISIBLE);
-            spValSpeed.setVisibility(View.GONE);
         }
 
-        spVar.setAdapter(createSpinnerAdapter(context, new String[]{"Power", "Speed"}));
-        spVar.setSelection(isSpeedInit ? 1 : 0);
+        spVar.setSelection(isPowerInit ? 1 : 0);
 
-        spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position == 0) { // Power
-                    spOp.setAdapter(adapterOpPower);
-                    spOp.setSelection(0);
-                    spValPower.setVisibility(View.VISIBLE);
-                    spValSpeed.setVisibility(View.GONE);
-                } else { // Speed
-                    spOp.setAdapter(adapterOpSpeed);
-                    spOp.setSelection(0);
-                    spValPower.setVisibility(View.GONE);
-                    spValSpeed.setVisibility(View.VISIBLE);
-                }
-            }
-
-            @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-
-        // Row 1: Rule Controls [Variable ▾] [Operator ▾] [Value ▾] [✕]
+        // Row 1: Rule Controls [Variable] [Operator] [Value]
         LinearLayout row1 = new LinearLayout(context);
         row1.setOrientation(LinearLayout.HORIZONTAL);
         row1.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row1.setPadding(0, margin4, 0, margin4);
 
         LinearLayout.LayoutParams lpVar = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.5f);
-        LinearLayout.LayoutParams lpOp  = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2.5f);
+        LinearLayout.LayoutParams lpOp  = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.0f);
         LinearLayout.LayoutParams lpVal = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3.5f);
 
         spVar.setLayoutParams(lpVar);
@@ -819,20 +900,9 @@ public class MainActivity extends AppCompatActivity {
         row1.addView(spOp);
         row1.addView(spValPower);
         row1.addView(spValSpeed);
-
-        Button btnDel = new Button(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        btnDel.setText("✕");
-        btnDel.setPadding(0, 0, 0, 0);
-        btnDel.setTextColor(ContextCompat.getColor(context, R.color.red_neon));
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams((int)(32 * dp), (int)(32 * dp));
-        delLp.setMargins((int)(6 * dp), 0, 0, 0);
-        btnDel.setLayoutParams(delLp);
-        btnDel.setOnClickListener(v -> container.removeView(card));
-        row1.addView(btnDel);
-
         card.addView(row1);
 
-        // Row 2: Grouping & Logic [Paren: ( ) ] [Combine: AND ▾]
+        // Row 2: Grouping & Logic [Paren] [CloseParen] [Conector]
         LinearLayout row2 = new LinearLayout(context);
         row2.setOrientation(LinearLayout.HORIZONTAL);
         row2.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -843,11 +913,6 @@ public class MainActivity extends AppCompatActivity {
         tvParen.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
         tvParen.setTextSize(12f);
         row2.addView(tvParen);
-
-        spOpenParen.setAdapter(createSpinnerAdapter(context, new String[]{"none", "(", "(("}));
-        if ("(".equals(initialOpenParen)) spOpenParen.setSelection(1);
-        else if ("((".equals(initialOpenParen)) spOpenParen.setSelection(2);
-        else spOpenParen.setSelection(0);
         row2.addView(spOpenParen);
 
         android.widget.Spinner spCloseParen = new android.widget.Spinner(context);
@@ -858,7 +923,7 @@ public class MainActivity extends AppCompatActivity {
         row2.addView(spCloseParen);
 
         TextView tvLogic = new TextView(context);
-        tvLogic.setText("   Combine next: ");
+        tvLogic.setText("   Conector: ");
         tvLogic.setTextColor(ContextCompat.getColor(context, R.color.text_muted));
         tvLogic.setTextSize(12f);
         row2.addView(tvLogic);
@@ -870,6 +935,57 @@ public class MainActivity extends AppCompatActivity {
         row2.addView(spLogicOp);
 
         card.addView(row2);
+
+        // Summary updater
+        Runnable updateSummary = () -> {
+            boolean isPwr = (spVar.getSelectedItemPosition() == 1);
+            String vStr = isPwr ? "Power" : "Volumen";
+            String opStr = spOp.getSelectedItem() != null ? spOp.getSelectedItem().toString() : "==";
+            String valStr = isPwr
+                    ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
+                    : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
+            String icon = isPwr ? "⚡" : "🔊";
+            tvSummary.setText(String.format("%s %s %s %s", icon, vStr, opStr, valStr));
+        };
+
+        android.widget.AdapterView.OnItemSelectedListener sumListener = new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                updateSummary.run();
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        };
+
+        spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                if (!isInitializing[0]) {
+                    if (position == 1) { // Power
+                        spOp.setAdapter(adapterOpPower);
+                        spOp.setSelection(0);
+                        spValPower.setVisibility(View.VISIBLE);
+                        spValSpeed.setVisibility(View.GONE);
+                    } else { // Volumen
+                        spOp.setAdapter(adapterOpSpeed);
+                        spOp.setSelection(0);
+                        spValPower.setVisibility(View.GONE);
+                        spValSpeed.setVisibility(View.VISIBLE);
+                    }
+                }
+                updateSummary.run();
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+
+        spOp.setOnItemSelectedListener(sumListener);
+        spValPower.setOnItemSelectedListener(sumListener);
+        spValSpeed.setOnItemSelectedListener(sumListener);
+        updateSummary.run();
+
+        isInitializing[0] = false; // Initialization complete!
 
         card.setTag(new Object[]{spOpenParen, spVar, spOp, spValPower, spValSpeed, spCloseParen, spLogicOp});
         container.addView(card);
@@ -1001,9 +1117,9 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject co = cArr.getJSONObject(c);
                     addConditionRow(this, containerOnConds,
                             co.optString("open_paren", ""),
-                            co.optString("var", "power"),
+                            co.optString("var", "speed"),
                             co.optString("op", "=="),
-                            co.optString("val", "OFF"),
+                            co.optString("val", "5"),
                             co.optString("close_paren", ""),
                             co.optString("logic_op", "AND"));
                 }
@@ -1014,7 +1130,7 @@ public class MainActivity extends AppCompatActivity {
         btnAddOnCond.setText("+ Add ON Condition");
         btnAddOnCond.setTextSize(12f);
         btnAddOnCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
-        btnAddOnCond.setOnClickListener(v -> addConditionRow(this, containerOnConds, "", "power", "==", "OFF", "", "AND"));
+        btnAddOnCond.setOnClickListener(v -> addConditionRow(this, containerOnConds, "", "speed", ">=", "5", "", "AND"));
         layoutOnCondSection.addView(btnAddOnCond);
 
         layoutOnContainer.addView(layoutOnCondSection);
@@ -1082,9 +1198,9 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject co = cArr.getJSONObject(c);
                     addConditionRow(this, containerOffConds,
                             co.optString("open_paren", ""),
-                            co.optString("var", "power"),
+                            co.optString("var", "speed"),
                             co.optString("op", "=="),
-                            co.optString("val", "ON"),
+                            co.optString("val", "5"),
                             co.optString("close_paren", ""),
                             co.optString("logic_op", "AND"));
                 }
@@ -1095,7 +1211,7 @@ public class MainActivity extends AppCompatActivity {
         btnAddOffCond.setText("+ Add OFF Condition");
         btnAddOffCond.setTextSize(12f);
         btnAddOffCond.setTextColor(ContextCompat.getColor(this, R.color.accent_neon));
-        btnAddOffCond.setOnClickListener(v -> addConditionRow(this, containerOffConds, "", "power", "==", "ON", "", "AND"));
+        btnAddOffCond.setOnClickListener(v -> addConditionRow(this, containerOffConds, "", "speed", "<=", "3", "", "AND"));
         layoutOffCondSection.addView(btnAddOffCond);
 
         layoutOffContainer.addView(layoutOffCondSection);
@@ -1245,7 +1361,7 @@ public class MainActivity extends AppCompatActivity {
                                 android.widget.Spinner spCloseParen= (android.widget.Spinner) tag[5];
                                 android.widget.Spinner spLogicOp   = (android.widget.Spinner) tag[6];
 
-                                boolean isPower = (spVar.getSelectedItemPosition() == 0);
+                                boolean isPower = (spVar.getSelectedItemPosition() == 1);
                                 String valStr = isPower
                                         ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
                                         : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");
@@ -1279,7 +1395,7 @@ public class MainActivity extends AppCompatActivity {
                                 android.widget.Spinner spCloseParen= (android.widget.Spinner) tag[5];
                                 android.widget.Spinner spLogicOp   = (android.widget.Spinner) tag[6];
 
-                                boolean isPower = (spVar.getSelectedItemPosition() == 0);
+                                boolean isPower = (spVar.getSelectedItemPosition() == 1);
                                 String valStr = isPower
                                         ? (spValPower.getSelectedItem() != null ? spValPower.getSelectedItem().toString() : "OFF")
                                         : (spValSpeed.getSelectedItem() != null ? spValSpeed.getSelectedItem().toString() : "5");

@@ -23,15 +23,48 @@ public class MarpacReceiver extends BroadcastReceiver {
             String mac = prefs.getString("mac_address", "");
             String unitNum = prefs.getString("unit_number", "");
 
+            String command = intent.getStringExtra("command");
+            if (command == null || command.isEmpty()) {
+                Log.w(TAG, "Missing required string extra 'command'");
+                return;
+            }
+
+            // If Tasker / Watch is requesting current state
+            if ("get_state".equalsIgnoreCase(command) || "get_volume".equalsIgnoreCase(command) || "query_state".equalsIgnoreCase(command)) {
+                int lastPower = prefs.getInt("last_power_state", 0);
+                int lastVol = prefs.getInt("last_volume", 5);
+                broadcastCurrentState(context, lastPower, lastVol);
+                return;
+            }
+
             if (mac.isEmpty() || "AA:BB:CC:DD:EE:FF".equals(mac)) {
                 Log.w(TAG, "Device MAC address is not configured yet! Please open the app first.");
                 return;
             }
 
-            String command = intent.getStringExtra("command");
-            if (command == null || command.isEmpty()) {
-                Log.w(TAG, "Missing required string extra 'command'");
-                return;
+            // Immediately update SharedPreferences state if provided in intent
+            SharedPreferences.Editor editor = prefs.edit();
+            boolean stateUpdated = false;
+
+            if (intent.hasExtra("state")) {
+                int newState = intent.getIntExtra("state", 0);
+                editor.putInt("last_power_state", newState);
+                stateUpdated = true;
+            }
+
+            if (intent.hasExtra("level")) {
+                int newVol = intent.getIntExtra("level", 5);
+                editor.putInt("last_volume", newVol);
+                stateUpdated = true;
+            } else if (intent.hasExtra("volume")) {
+                int newVol = intent.getIntExtra("volume", 5);
+                editor.putInt("last_volume", newVol);
+                stateUpdated = true;
+            }
+
+            if (stateUpdated) {
+                editor.apply();
+                broadcastCurrentState(context, prefs.getInt("last_power_state", 0), prefs.getInt("last_volume", 5));
             }
 
             // Forward command to BLEService
@@ -80,5 +113,23 @@ public class MarpacReceiver extends BroadcastReceiver {
                 }
             }
         }
+    }
+
+    private void broadcastCurrentState(Context context, int powerState, int volume) {
+        String timestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        Intent stateIntent = new Intent("com.nitsu.marpacbridge.ACTION_STATE_CHANGED");
+        stateIntent.putExtra("power", powerState);
+        stateIntent.putExtra("power_text", powerState == 1 ? "ON" : "OFF");
+        stateIntent.putExtra("volume", volume);
+        stateIntent.putExtra("last_update", timestamp);
+        context.sendBroadcast(stateIntent);
+
+        // Also broadcast explicit response intent for Tasker queries
+        Intent responseIntent = new Intent("com.nitsu.marpacbridge.ACTION_STATE_RESPONSE");
+        responseIntent.putExtra("power", powerState);
+        responseIntent.putExtra("power_text", powerState == 1 ? "ON" : "OFF");
+        responseIntent.putExtra("volume", volume);
+        responseIntent.putExtra("last_update", timestamp);
+        context.sendBroadcast(responseIntent);
     }
 }
