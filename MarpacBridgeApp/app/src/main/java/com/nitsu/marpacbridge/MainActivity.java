@@ -852,24 +852,22 @@ public class MainActivity extends AppCompatActivity {
 
         boolean isPowerInit = "power".equalsIgnoreCase(initialVar);
 
-        // Flag to prevent onItemSelected from resetting initial operator selection during layout binding
-        final boolean[] isInitializing = {true};
-
+        int initialOpIdx = 0;
         if (isPowerInit) {
             spOp.setAdapter(adapterOpPower);
-            spOp.setSelection("!=".equals(initialOp) ? 1 : 0);
+            initialOpIdx = "!=".equals(initialOp) ? 1 : 0;
+            spOp.setSelection(initialOpIdx);
             spValPower.setSelection("OFF".equalsIgnoreCase(initialVal) ? 1 : 0);
 
             spValPower.setVisibility(View.VISIBLE);
             spValSpeed.setVisibility(View.GONE);
         } else {
             spOp.setAdapter(adapterOpSpeed);
-            int opIdx = 0;
             String[] ops = {"==", "!=", "<", ">", "<=", ">="};
             for (int j = 0; j < ops.length; j++) {
-                if (ops[j].equals(initialOp)) { opIdx = j; break; }
+                if (ops[j].equals(initialOp)) { initialOpIdx = j; break; }
             }
-            spOp.setSelection(opIdx);
+            spOp.setSelection(initialOpIdx);
 
             int valIdx = 4;
             try { valIdx = Integer.parseInt(initialVal) - 1; } catch (Exception ignored) {}
@@ -879,7 +877,11 @@ public class MainActivity extends AppCompatActivity {
             spValSpeed.setVisibility(View.VISIBLE);
         }
 
-        spVar.setSelection(isPowerInit ? 1 : 0);
+        final int initialVarPos = isPowerInit ? 1 : 0;
+        final int targetOpIdx = initialOpIdx;
+        final int[] lastSelectedVarPos = {initialVarPos};
+
+        spVar.setSelection(initialVarPos);
 
         // Row 1: Rule Controls [Variable] [Operator] [Value]
         LinearLayout row1 = new LinearLayout(context);
@@ -960,7 +962,8 @@ public class MainActivity extends AppCompatActivity {
         spVar.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (!isInitializing[0]) {
+                if (position != lastSelectedVarPos[0]) {
+                    lastSelectedVarPos[0] = position;
                     if (position == 1) { // Power
                         spOp.setAdapter(adapterOpPower);
                         spOp.setSelection(0);
@@ -985,7 +988,12 @@ public class MainActivity extends AppCompatActivity {
         spValSpeed.setOnItemSelectedListener(sumListener);
         updateSummary.run();
 
-        isInitializing[0] = false; // Initialization complete!
+        spOp.post(() -> {
+            if (spVar.getSelectedItemPosition() == lastSelectedVarPos[0]) {
+                spOp.setSelection(targetOpIdx);
+                updateSummary.run();
+            }
+        });
 
         card.setTag(new Object[]{spOpenParen, spVar, spOp, spValPower, spValSpeed, spCloseParen, spLogicOp});
         container.addView(card);
