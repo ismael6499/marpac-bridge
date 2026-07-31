@@ -282,13 +282,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnAddSchedule.setOnClickListener(v -> {
-            try {
-                JSONArray arr = new JSONArray(prefs.getString("schedules_json", "[]"));
-                if (arr.length() >= MAX_SCHEDULES) {
-                    Toast.makeText(this, "Maximum " + MAX_SCHEDULES + " plans reached", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            } catch (Exception ignored) {}
             showAddScheduleDialog(-1);
         });
 
@@ -1325,15 +1318,16 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     JSONArray arr = new JSONArray(prefs.getString("schedules_json", "[]"));
                     
-                    if (!isLocal && editId == -1) {
+                    if (!isLocal) {
                         int hwCount = 0;
                         for (int j = 0; j < arr.length(); j++) {
-                            if (!"local".equals(arr.getJSONObject(j).optString("type"))) {
+                            JSONObject obj = arr.getJSONObject(j);
+                            if (obj.optInt("id") != editId && !"local".equals(obj.optString("type"))) {
                                 hwCount++;
                             }
                         }
-                        if (hwCount >= MAX_SCHEDULES) {
-                            Toast.makeText(this, "Maximum " + MAX_SCHEDULES + " hardware plans supported by Yogasleep memory", Toast.LENGTH_LONG).show();
+                        if (hwCount >= 3) {
+                            Toast.makeText(this, "Maximum 3 hardware slots supported by Yogasleep memory", Toast.LENGTH_LONG).show();
                             return;
                         }
                     }

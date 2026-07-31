@@ -181,22 +181,20 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
 
         if (alarmManager != null) {
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(calendar.getTimeInMillis(), pendingIntent);
-                        alarmManager.setAlarmClock(info, pendingIntent);
-                        addLog(context, "Rescheduled exact AlarmClock ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                        addLog(context, "Rescheduled exact background timer ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
                     } else {
                         alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-                        addLog(context, "Rescheduled inexact Alarm ID " + alarmId + " (no permission) for tomorrow at " + hour + ":" + minute);
+                        addLog(context, "Rescheduled inexact background timer ID " + alarmId + " (no permission) for tomorrow at " + hour + ":" + minute);
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(calendar.getTimeInMillis(), pendingIntent);
-                    alarmManager.setAlarmClock(info, pendingIntent);
-                    addLog(context, "Rescheduled exact AlarmClock ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
-                } else {
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-                    addLog(context, "Rescheduled exact Alarm ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
+                    addLog(context, "Rescheduled exact background timer ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                    addLog(context, "Rescheduled background timer ID " + alarmId + " for tomorrow at " + hour + ":" + minute);
                 }
             } catch (Exception e) {
                 addLog(context, "Reschedule failed: " + e.getMessage());
@@ -229,22 +227,20 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
 
         if (alarmManager != null) {
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(calendar.getTimeInMillis(), pendingIntent);
-                        alarmManager.setAlarmClock(info, pendingIntent);
-                        addLog(context, "Scheduled exact AlarmClock ID " + alarmId + " for " + hour + ":" + minute);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                        addLog(context, "Scheduled exact background timer ID " + alarmId + " for " + hour + ":" + minute);
                     } else {
                         alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-                        addLog(context, "Scheduled inexact Alarm ID " + alarmId + " (no permission) for " + hour + ":" + minute);
+                        addLog(context, "Scheduled inexact background timer ID " + alarmId + " (no permission) for " + hour + ":" + minute);
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(calendar.getTimeInMillis(), pendingIntent);
-                    alarmManager.setAlarmClock(info, pendingIntent);
-                    addLog(context, "Scheduled exact AlarmClock ID " + alarmId + " for " + hour + ":" + minute);
-                } else {
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-                    addLog(context, "Scheduled exact Alarm ID " + alarmId + " for " + hour + ":" + minute);
+                    addLog(context, "Scheduled exact background timer ID " + alarmId + " for " + hour + ":" + minute);
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                    addLog(context, "Scheduled background timer ID " + alarmId + " for " + hour + ":" + minute);
                 }
             } catch (Exception e) {
                 addLog(context, "Schedule failed: " + e.getMessage());
