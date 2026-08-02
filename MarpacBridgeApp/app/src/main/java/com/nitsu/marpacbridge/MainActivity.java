@@ -684,9 +684,7 @@ public class MainActivity extends AppCompatActivity {
                                 if (a.getJSONObject(j).getInt("id") != id) newArr.put(a.getJSONObject(j));
                             prefs.edit().putString("schedules_json", newArr.toString()).apply();
                             
-                            if (!"local".equals(type)) {
-                                startBLEServiceWithAction("sync_schedules");
-                            }
+                            startBLEServiceWithAction("sync_schedules");
                             renderSchedules();
                         } catch (Exception ignored) {}
                     })

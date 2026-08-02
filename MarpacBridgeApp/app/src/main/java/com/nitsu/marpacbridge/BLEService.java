@@ -269,11 +269,21 @@ public class BLEService extends Service {
                 addLog("Syncing hardware schedules to machine: " + schedulesJsonStr);
                 try {
                     org.json.JSONArray arr = new org.json.JSONArray(schedulesJsonStr);
+                    java.util.List<org.json.JSONObject> hwPlans = new java.util.ArrayList<>();
+                    for (int i = 0; i < arr.length(); i++) {
+                        org.json.JSONObject obj = arr.getJSONObject(i);
+                        String type = obj.optString("type", "hardware");
+                        if (!"local".equals(type)) {
+                            hwPlans.add(obj);
+                        }
+                    }
+                    addLog("Found " + hwPlans.size() + " hardware plans to sync to machine.");
+
                     // Yogasleep physical hardware only supports exactly 3 slots (1 to 3)
                     for (int i = 0; i < 3; i++) {
                         int slotIndex = i + 1;
-                        if (i < arr.length()) {
-                            org.json.JSONObject obj = arr.getJSONObject(i);
+                        if (i < hwPlans.size()) {
+                            org.json.JSONObject obj = hwPlans.get(i);
                             boolean enabled = obj.optBoolean("enabled", true);
                             
                             int onHour = obj.optInt("on_hour", 22);
