@@ -1,0 +1,51 @@
+﻿name: Build & Release MarpacBridge APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x MarpacBridgeApp/gradlew
+
+      - name: Build Debug APK
+        working-directory: MarpacBridgeApp
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK Artifact
+        run: |
+          mkdir -p release-output
+          TAG_NAME="${GITHUB_REF_NAME:-v1.0.0}"
+          cp MarpacBridgeApp/app/build/outputs/apk/debug/app-debug.apk "release-output/MarpacBridge-${TAG_NAME}.apk"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: MarpacBridge ${{ github.ref_name }}
+          files: release-output/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
