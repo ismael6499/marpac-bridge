@@ -418,17 +418,6 @@ public class BLEService extends Service {
                 } else {
                     bluetoothGatt = device.connectGatt(this, false, gattCallback);
                 }
-
-                if (device.getBondState() == BluetoothDevice.BOND_NONE) {
-                    addLog("Device not bonded. Initiating bonding handshake (createBond) after connectGatt...");
-                    try {
-                        device.createBond();
-                    } catch (Exception e) {
-                        addLog("Error initiating bond: " + e.getMessage());
-                    }
-                } else {
-                    addLog("Device bond state is: " + device.getBondState() + ". Skipping createBond.");
-                }
             } else {
                 addLog("Error: No BT Connect Permission");
                 stopSelf();
@@ -578,13 +567,6 @@ public class BLEService extends Service {
                 addLog("GATT Connected! status=" + status + ". Discovering services...");
                 try {
                     if (ContextCompat.checkSelfPermission(BLEService.this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                        BluetoothDevice dev = gatt.getDevice();
-                        if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
-                            addLog("Device not bonded. Initiating bonding handshake (createBond)...");
-                            dev.createBond();
-                        } else {
-                            addLog("Device bond state code: " + dev.getBondState());
-                        }
                         gatt.discoverServices();
                     }
                 } catch (SecurityException ignored) {}
